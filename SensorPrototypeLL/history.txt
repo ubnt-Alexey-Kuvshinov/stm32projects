@@ -1,0 +1,5 @@
+minimal framework featuring
+RTC, LpTimer, State Machine, Power modes, radio control with C# tool
+
+Oct. 13, 2016
+unneseccary defines removed, added LED activation patterns, saving before updating UART replies from HEX strings to bytes, where first byte of a reply is the message length
