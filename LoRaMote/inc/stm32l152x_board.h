@@ -32,40 +32,42 @@
 
 #define CLEAR_EVENT(event) __disable_irq(); HardwareEvents &= ~(event); __enable_irq()
 
+#define I2C_REQUEST_READ	0x01
 
- typedef enum
- {
- 	USART_1					= USART1_BASE,
- 	USART_2					= USART2_BASE,
- } USARTx;
 
- typedef enum
- {
- 	PORT_A					= GPIOA_BASE,
- 	PORT_B					= GPIOB_BASE,
- 	PORT_C					= GPIOC_BASE,
+typedef enum
+{
+	USART_1					= USART1_BASE,
+	USART_2					= USART2_BASE,
+} USARTx;
+
+typedef enum
+{
+	PORT_A					= GPIOA_BASE,
+	PORT_B					= GPIOB_BASE,
+	PORT_C					= GPIOC_BASE,
 	PORT_D					= GPIOD_BASE,
- } GPIO_Port;
+} GPIO_Port;
 
- typedef enum
- {
- 	GPIO_0,
+typedef enum
+{
+	GPIO_0,
 	GPIO_1,
 	GPIO_2,
 	GPIO_3,
- 	GPIO_4,
+	GPIO_4,
 	GPIO_5,
 	GPIO_6,
 	GPIO_7,
- 	GPIO_8,
+	GPIO_8,
 	GPIO_9,
 	GPIO_10,
 	GPIO_11,
- 	GPIO_12,
+	GPIO_12,
 	GPIO_13,
 	GPIO_14,
 	GPIO_15,
- } GPIO_Number;
+} GPIO_Number;
 
 
 //LEDs
@@ -252,6 +254,8 @@ extern uint32_t HardwareEvents;										//combination of all current hardware e
 extern uint16_t SoftwareEvents;										//e.g. new command received
 extern uint16_t OldStateAndSubstate;
 
+extern const uint32_t * const DeviceID;
+
 extern uint8_t UartRxBuffer[32];
 extern uint8_t UartRxCounter;
 extern UartTx Uart2Tx;
@@ -304,6 +308,9 @@ void addToUart2MsgAsHex(uint8_t byte);
 
 void spiAccessRegisters(uint8_t *data, uint8_t length);
 void spiAccessRegisters2(uint8_t command, uint8_t *data, uint8_t length);
+
+void i2cWrite(uint8_t address, uint8_t *data, uint8_t length, uint8_t stop);
+void i2cRead(uint8_t address, uint8_t *data, uint8_t length);
 
 //void startLpTimer(uint16_t timeout);
 void setTimer(uint32_t timeout, uint32_t event);

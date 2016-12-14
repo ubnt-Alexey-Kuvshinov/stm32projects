@@ -7,6 +7,8 @@ uint32_t HardwareEvents;// = HWE_KEEP_CPU_RUNNING;
 uint16_t SoftwareEvents;
 uint32_t EventMask;
 
+const uint32_t * const DeviceID = (uint32_t *)0x1FF800D0;
+
 uint8_t UartRxBuffer[32];
 uint8_t UartRxCounter;
 UartTx Uart2Tx;
@@ -47,6 +49,9 @@ void stateMachine(void)
 			{
 				CLEAR_EVENT(HWE_LPTIMER);
 				boardGreenLedOff();
+
+				setTimer(timer_seconds(22), HWE_BUTTON_PRESS);						//schedule next wake up
+
 				DeviceState.StateAndSubstate = STATE_WAITING_INPUT;
 			}
 			break;
@@ -77,6 +82,7 @@ void stateMachine(void)
 				CLEAR_EVENT(HWE_LPTIMER);
 				boardRedLedOff();
 				boardGreenLedOff();
+
 				DeviceState.StateAndSubstate = STATE_WAITING_INPUT;
 			}
 			break;
@@ -109,13 +115,7 @@ void stateMachine(void)
 				boardRedLedOff();
 				boardGreenLedOff();
 
-				//Here we finished "flashy business" for waking by ext event, now let's decide what to do next:
-				// 1) let's try getting GPS coordinates and send those once available
-				// 2) while GPS is getting ready we can start listening around for control channel availability then
-				//    request communication after expected GPS fix delay
 
-				RadioTask(RTC_START, GPS_FIX_TIMEOUT_WARM);	//can not be longer than 254 seconds
-				GpsTask(RTC_START, 0);						//start mining for GPS data
 				DeviceState.StateAndSubstate = STATE_WAITING_INPUT;
 			}
 			break;
@@ -128,6 +128,31 @@ void stateMachine(void)
 		case STATE_INIT:
 			setTimer(timer_seconds(10), HWE_INPUT_TIMEOUT);							//wait for xx seconds before entering low power mode
 			HardwareEvents |= HWE_INPUT_WAITING;									//needed as UART RX does not wake this MCU from sleep
+
+			//Here we finished "flashy business" for waking by some event, now let's decide what to do next:
+			// 1) let's try getting GPS coordinates and send those once available
+			// 2) while GPS is getting ready we can start listening around for control channel availability then
+			//    request communication after expected GPS fix delay
+
+//			RadioTask(RTC_START, GPS_FIX_TIMEOUT_WARM);	//can not be longer than 254 seconds
+			uint8tmp = GpsTask(GTC_GET_STATE, 0);
+			if((GTS_IDLE == uint8tmp) || (GTS_FAILED == uint8tmp)) {
+				GpsTask(GTC_RESET, 0);
+				GpsTask(GTC_START, 0);												//start mining for GPS data
+			}
+
+			uint8tmp = AltimeterTask(ATC_GET_STATE, 0);
+			if((ATS_IDLE == uint8tmp) || (ATS_FAILED == uint8tmp)) {
+				AltimeterTask(ATC_RESET, 0);
+				AltimeterTask(ATC_START, 0);
+			}
+
+			uint8tmp = RadioTask(RTC_GET_STATE, 0);
+			if((RTS_IDLE == uint8tmp) || (RTS_FAILED == uint8tmp) || (RTS_SUCCESS == uint8tmp)) {
+				RadioTask(RTC_RESET, 0);
+				RadioTask(RTC_START, timer_seconds(1));								//can not be longer than 254 seconds
+			}
+
 			DeviceState.substate = STATE_BUSINESS;
 			break;
 		default:
@@ -219,7 +244,14 @@ void stateMachine(void)
 			if(HardwareEvents & HWE_INPUT_TIMEOUT)
 			{
 				CLEAR_EVENT(HWE_INPUT_TIMEOUT);
-				if((PWR_STANDBY == RadioTask(RTC_GET_PWR_NEED, 0)) && (PWR_STANDBY == GpsTask(GTC_GET_PWR_NEED, 0))) {
+				DeviceState.StateAndSubstate = STATE_WAITING_INPUT;
+				break;
+
+
+				if((PWR_STANDBY == RadioTask(RTC_GET_PWR_NEED, 0)) &&
+					(PWR_STANDBY == GpsTask(GTC_GET_PWR_NEED, 0)) &&
+					(PWR_STANDBY == AltimeterTask(ATC_GET_PWR_NEED, 0))) {
+
 					CLEAR_EVENT(HWE_INPUT_WAITING);
 					DeviceState.StateAndSubstate = STATE_IDLE;
 				}
@@ -253,7 +285,7 @@ int main(void)
 	if(LL_PWR_IsActiveFlag_WU())													//woke up from stand-by mode
 	{
 		//RTC or external wake-up? Later the states could be loaded from RTC back-up registers.
-		if(READ_BIT(RTC->ISR, RTC_ISR_ALRAF))	//or (READ_BIT(RTC->ISR, RTC_ISR_ALRBF));
+		if(READ_BIT(RTC->ISR, RTC_ISR_ALRAF))// || READ_BIT(RTC->ISR, RTC_ISR_ALRBF))
 			DeviceState.StateAndSubstate = STATE_ALARM;
 		else
 			DeviceState.StateAndSubstate = STATE_EXT_EVENT;
@@ -289,7 +321,7 @@ int main(void)
 					GpsRxCounter = 0;
 					break;															//to keep UART1 disabled until message is processed
 				}
-				if(GpsRxCounter >= sizeof(GpsRxBuffer))							//can not be >= sizeof(UartRxBuffer) as the ISR does not update overflown counter
+				if(GpsRxCounter >= sizeof(GpsRxBuffer))								//can not be >= sizeof(UartRxBuffer) as the ISR does not update overflown counter
 					GpsRxCounter = 0;
 
 				USARTx_RX_INTERRUPT_ENABLE(USART_1);
@@ -311,7 +343,7 @@ int main(void)
 					UartRxCounter = 0;
 				}
 
-				if(UartRxCounter >= sizeof(UartRxBuffer))						//can not be >= sizeof(UartRxBuffer) as the ISR does not update overflown counter
+				if(UartRxCounter >= sizeof(UartRxBuffer))							//can not be >= sizeof(UartRxBuffer) as the ISR does not update overflown counter
 					UartRxCounter = 0;
 
 				USARTx_RX_INTERRUPT_ENABLE(USART_2);

@@ -16,7 +16,7 @@
 #define RADIO_TX_TIMEOUT		timer_seconds(2)						//TX timeout expressed in LED blinks
 #define RADIO_RX_TIMEOUT		timer_seconds(2)						//RX timeout expressed in LED blinks
 
-uint8_t RadioBuffer[RADIO_BUFFER_SIZE];
+uint8_t RadioBuffer[RADIO_BUFFER_SIZE] __attribute__ ((aligned (4)));
 
 RadioSettings radioControlTxSettings = {{0xC0E4, RBW72_7, RSF_12, RCR_4_of_5, REH_EXPLICIT}};
 RadioSettings radioDataTxSettings = {};
@@ -157,7 +157,12 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 					if(RTS_FLASHING_CC_REQUEST == state) {
 						RadioSetCommunicationParameters(&radioControlTxSettings);
 						RadioBuffer[0] = RMT_COMMUNICATION_REQUEST;
-						RadioTransmit(RadioBuffer, 2);					//RadioBuffer[1] is already set with the delay value
+						//RadioBuffer[1] is already set with the delay value
+						RadioBuffer[2] = *DeviceID;
+						RadioBuffer[3] = *DeviceID >> 8;
+						RadioBuffer[4] = *DeviceID >> 16;
+						RadioBuffer[5] = *DeviceID >> 24;
+						RadioTransmit(RadioBuffer, RMS_CC_REQUEST);
 						RadioBuffer[0] = 0;
 						setTimer(RADIO_LED_TIMEOUT, HWE_RADIO_TIMEOUT);
 						state = RTS_TRANSMITTING_CC_REQUEST;
@@ -200,18 +205,27 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 				RadioSetCommunicationParameters(&radioDataTxSettings);
 				uint8tmp = 0;
 
-				//compose radio message
+				//pack device data to radio message and air it
+
 				RadioBuffer[uint8tmp++] = RMT_COMMUNICATION_DATA;
 
-				if(GTS_SUCCESS == GpsTask(GTC_GET_STATE, 0)) {							//insert GPS data if available
+				if(GTS_SUCCESS == GpsTask(GTC_GET_STATE, 0)) {			//insert GPS data if available
+					GpsTask(GTC_RESET, 0);
 					RadioBuffer[uint8tmp++] = RMDT_GPS;
 					memmove(&RadioBuffer[uint8tmp], &GpsData, sizeof(GPS));
 					uint8tmp += sizeof(GPS);
 				}
 
-				RadioTransmit(RadioBuffer, uint8tmp);									//send the data
+				if(ATS_SUCCESS == AltimeterTask(ATC_GET_STATE, 0)) {	//insert altimeter data if available
+					AltimeterTask(ATC_RESET, 0);
+					RadioBuffer[uint8tmp++] = RMDT_ALTIMETER;
+					RadioBuffer[uint8tmp++] = AltimeterData.temperature_whole;
+					RadioBuffer[uint8tmp++] = AltimeterData.temperature_fractional;
+				}
 
-				RadioBuffer[0] = 0;														//move to transmitting state
+				RadioTransmit(RadioBuffer, uint8tmp);					//send the data
+
+				RadioBuffer[0] = 0;										//move to transmitting state
 				setTimer(RADIO_LED_TIMEOUT, HWE_RADIO_TIMEOUT);
 				state = RTS_TRANSMITTING_DATA;
 				break;
@@ -246,32 +260,39 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 				RadioBuffer[6] = RC_GET_RX_BYTES_COUNT;					//get the number of received bytes
 				spiAccessRegisters(RadioBuffer + 6, 2);					//RadioBuffer[7] keeps received size
 
-				RadioBuffer[2] = RC_GET_FIFO_RX_LAST_PKT_ADDR;			//get the last received packet start address in FIFO
-				spiAccessRegisters(RadioBuffer + 2, 2);					//RadioBuffer[3] keeps last packet address in FIFO
-				RadioBuffer[2] = RC_SET_FIFO_POINTER;					//set the FIFO pointer to the beginning of received packet
-				spiAccessRegisters(RadioBuffer + 2, 2);
+				if(RadioBuffer[7] >= RMS_MINIMUM) {						//make sure the message is not too short
 
-				RadioBuffer[0] = RC_GET_FIFO;							//get the first received byte which is the message type
-				spiAccessRegisters(RadioBuffer, 2);
+					RadioBuffer[2] = RC_GET_FIFO_RX_LAST_PKT_ADDR;		//get the last received packet start address in FIFO
+					spiAccessRegisters(RadioBuffer + 2, 2);				//RadioBuffer[3] keeps last packet address in FIFO
+					RadioBuffer[2] = RC_SET_FIFO_POINTER;				//set the FIFO pointer to the beginning of received packet
+					spiAccessRegisters(RadioBuffer + 2, 2);
 
-				switch(RadioBuffer[1]) {								//TODO: the texts sending takes time, should be removed
-				case RMT_COMMUNICATION_SCHEDULING:
-					if(RadioBuffer[7] != 9) {							//TODO: use constant
-						uart2SendText("CC reply has wrong size:");
-						RadioTaskGoToFailed(&state);
-					} else {											//get the channel and time settings
-						spiAccessRegisters2(RC_GET_FIFO, radioDataTxSettings.settingsArray, 8);
-						setTimer(timer_seconds(radioDataTxSettings.settingsArray[3] - 1), HWE_RADIO_TIMEOUT);	//TODO: implement actual time adjustment based on RX parameters
-						state = RTS_WAITING_FOR_DATA_SCHEDULE;			//TODO: implement going to deep sleep wait state logic
-						uart2SendText("radio received CC message:");
+					spiAccessRegisters2(RC_GET_FIFO, RadioBuffer, RMS_MINIMUM);	//get Device ID and message type
+
+					if(*((int*)RadioBuffer) == *DeviceID) {				//make sure the message is for this device
+
+						switch(RadioBuffer[RMF_MSG_TYPE]) {
+						case RMT_COMMUNICATION_SCHEDULING:
+							if(RadioBuffer[7] != RMS_CC_REPLY) {
+								uart2SendText("CC reply has wrong size:");
+								RadioTaskGoToFailed(&state);
+							} else {											//get the channel and time settings
+								spiAccessRegisters2(RC_GET_FIFO, radioDataTxSettings.settingsArray, 8);
+								setTimer(timer_seconds(radioDataTxSettings.settingsArray[3] - 1), HWE_RADIO_TIMEOUT);	//TODO: implement actual time adjustment based on RX parameters
+								state = RTS_WAITING_FOR_DATA_SCHEDULE;			//TODO: implement going to deep sleep wait state logic
+								uart2SendText("radio received CC message:");
+								goto gotit;
+							}
+							break;
+
+						}
 					}
-					break;
-				default:
-					uart2SendText("CC reply is not recognized:");
-					RadioTaskGoToFailed(&state);
 				}
-				//display received stuff for debugging
-				startUart2Msg(RC_RX_MESSAGE);
+
+				uart2SendText("CC reply is not recognized:");
+				RadioTaskGoToFailed(&state);							//TODO: may try receiving again
+gotit:
+				startUart2Msg(RC_RX_MESSAGE);							//display received stuff for debugging
 
 				RadioBuffer[2] = RC_GET_FIFO_RX_LAST_PKT_ADDR;			//get the last received packet start address in FIFO
 				spiAccessRegisters(RadioBuffer + 2, 2);					//RadioBuffer[3] keeps last packet address in FIFO
@@ -287,8 +308,6 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 				RadioBuffer[0] = RC_SET_MODEM_MODE;						//move to standby mode for conserving power
 				RadioBuffer[1] = RM_STANDBY;
 				spiAccessRegisters(RadioBuffer, 2);
-
-
 				break;
 			}		//switch (state)
 			break;	//case HWE_DIO0

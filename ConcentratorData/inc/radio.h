@@ -39,12 +39,12 @@ typedef enum {
 
 typedef union {
 	struct  {
-			uint32_t fq;											//frequency in 61.035Hz steps in reversed order
-			uint8_t bw;												//bandwidth
-			uint8_t sf;												//spreading factor
-			uint8_t cr;												//coding rate
-			uint8_t eh;												//explicit/implicit header
-		};
+			uint32_t fq;								//frequency in 61.035Hz steps in reversed order
+			uint8_t bw;									//bandwidth
+			uint8_t sf;									//spreading factor
+			uint8_t cr;									//coding rate
+			uint8_t eh;									//explicit/implicit header
+	};
 	uint8_t settingsArray[8];
 } RadioSettings;
 

@@ -619,6 +619,9 @@ typedef enum
 //	RC_SET_CODING_RATE,				//sets one of RadioCodingRates, specified in the byte following the command
 //	RC_SET_HEADER_TYPE,					//sets Tx/Rx frequency
 	RC_GET_GPS				= 0xF8,								//temporary command to check a data string from gps
+	RC_GET_PICTURE				= 0xF9,								//command to camera to take a picture
+	RC_PICTURE_DATA				= 0xFA,								//picture data message or get next data command, if the following byte is 0, or resend data if 1
+	RC_END_PICTURE				= 0xFB,								//message to external device that all picture data was transfered
 	RC_RX_MESSAGE				= 0xFC,								//tells external device that following data is received LoRa message
 	RC_TX_MESSAGE				= 0xFD,								//tells radio device that following data is a LoRa message to transmit
 	RC_SET_WAKEUP				= 0xFE,								//set wake up time and date
@@ -637,11 +640,28 @@ typedef enum
 typedef enum
 {
 	//Radio message may have dynamic content depending on situation, e.g data availability. To allow this, each data field would have type (and length ?) headers
-	RMDT_DEVICE_ID,													//identification number of transmitting device
+	RMDT_DEVICE_ID,													//identification number of target/source device
 	RMDT_GPS,														//gps coordinates
+	RMDT_ALTIMETER,													//altimeter information: temperature
 	RMDT_TIME,														//internal time of a device
 	RMDT_BATTERY,													//battery level
 } RadioMessageDataTypes;
+
+typedef enum
+{
+	//Position of information fields inside Radio messages
+	RMF_DEVICE_ID			= 0,									//Device ID
+	RMF_MSG_TYPE			= 4,									//message type code position
+	RMF_TX_SETTINGS			= 5,									//beginning of communication parameters
+} RadioMessageFields;
+
+typedef enum
+{
+	//Length of fixed-size RF messages
+	RMS_MINIMUM				= 5,									//size of a shortest message possible: 4 bytes Device ID, 1 - command
+	RMS_CC_REQUEST			= 6,									//request to Control Channel for communication: one byte of message type, 1 byte of comm delay and 4 bytes of Device ID
+	RMS_CC_REPLY			= 13,									//CC reply: 4 bytes of Device ID, 1 byte message type, 8 bytes of communication parameters
+} RadioMessagesSize;
 
 //Time considerations for sensor devices and concentrators:
 // 1) time is that of UTC (Patrick)

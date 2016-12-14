@@ -282,7 +282,7 @@ static inline void enableLPTim(void)
 	LL_LPTIM_Enable(LPTIM1);											//Enable LPTIM
 
 	LL_EXTI_EnableIT_0_31(LL_EXTI_LINE_29);
-	LL_EXTI_EnableRisingTrig_0_31(LL_EXTI_LINE_29);						//connect RTC Alarm to EXTI line
+	LL_EXTI_EnableRisingTrig_0_31(LL_EXTI_LINE_29);						//connect LPTIM to EXTI line
 
 	NVIC_SetPriority(LPTIM1_IRQn, LPTIMER_PRIORITY);
 	NVIC_EnableIRQ(LPTIM1_IRQn);

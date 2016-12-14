@@ -210,15 +210,7 @@ void stateMachine(void)
 				case RC_TX_MESSAGE:
 					boardGreenLedToggle();
 
-					uint8tmp = RMT_COMMUNICATION_REQUEST;
-
-					//RadioSetCommunicationParameters(0xC0E4, RBW_7, RSF_12, RCR_4_of_5, REH_EXPLICIT);
-//					RadioSetCommunicationParameters(
-//							(UartRxBuffer[1] << 16) | (UartRxBuffer[2] << 8) | UartRxBuffer[3],		//frequency in 61.035Hz increments in reversed order
-//							UartRxBuffer[4], UartRxBuffer[5], UartRxBuffer[6],	UartRxBuffer[7]);	//BW, SF, CR, and header type
-
-//					RadioTransmit(UartRxBuffer + 8, UartRxCounter - 2 - 8);							//transmit the payload
-					RadioTransmit(UartRxBuffer + 1, UartRxCounter - 2 - 1);							//transmit msg type, comm parameters and payload
+					RadioTransmit(UartRxBuffer + 1, UartRxCounter - 2 - 1);							//transmit Device ID, msg type, comm parameters and payload
 
 					DeviceState.StateAndSubstate = STATE_RADIO_TRANSMITTING;
 					break;
@@ -231,6 +223,8 @@ void stateMachine(void)
 				//send back command execution result
 				sendUart2Message();
 			}	//if(SoftwareEvents & SWE_COMMAND)
+
+			//******************* received radio message ************************************************************************
 
 			if(HardwareEvents & HWE_DIO0)
 			{

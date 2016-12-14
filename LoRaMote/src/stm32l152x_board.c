@@ -624,48 +624,63 @@ void spiAccessRegisters2(uint8_t command, uint8_t *data, uint8_t length)
 }
 
 
-
-void i2cWrite(uint8_t address, uint8_t *data, uint8_t length)
+//the stop parameter should be zero if i2cRead is called right after i2cWrite, to generate restart condition
+void i2cWrite(uint8_t address, uint8_t *data, uint8_t length, uint8_t stop)
 {
-/* (1) Prepare acknowledge for Master data reception ************************/
-LL_I2C_AcknowledgeNextData(I2C1, LL_I2C_ACK);
+	LL_I2C_GenerateStartCondition(I2C1);								//Initiate a Start condition to the Slave device
 
-	LL_I2C_GenerateStartCondition(I2C1);						//Initiate a Start condition to the Slave device
+	while(!LL_I2C_IsActiveFlag_SB(I2C1));								//wait until Start Bit transmitted (SB flag raised)
 
-	while(!LL_I2C_IsActiveFlag_SB(I2C1));						//wait until Start Bit transmitted (SB flag raised)
+	LL_I2C_TransmitData8(I2C1, (address << 1));							//Send Slave address with a 7-Bit SLAVE_OWN_ADDRESS for a write request
 
-	LL_I2C_TransmitData8(I2C1, (address << 1));					//Send Slave address with a 7-Bit SLAVE_OWN_ADDRESS for a write request
+	while(!LL_I2C_IsActiveFlag_ADDR(I2C1));								//wait until Address Acknowledgement received (ADDR flag raised)
 
-	while(!LL_I2C_IsActiveFlag_ADDR(I2C1));						//wait until Address Acknowledgement received (ADDR flag raised)
+	LL_I2C_ClearFlag_ADDR(I2C1);										//Clear ADDR flag value in ISR register
 
-	LL_I2C_ClearFlag_ADDR(I2C1);								//Clear ADDR flag value in ISR register
-
-	while(length > 0)											//Transmit data
-		if(LL_I2C_IsActiveFlag_TXE(I2C1)) {						//Check TXE flag value in ISR register and write next data before previous is transmitted
-			LL_I2C_TransmitData8(I2C1, (*data++));				//Write data in Transmit Data register. TXE flag is cleared by writing data in TXDR register
+	while(length > 0)													//Transmit data
+		if(LL_I2C_IsActiveFlag_TXE(I2C1)) {								//Check TXE flag value in ISR register and write next data before previous is transmitted
+			LL_I2C_TransmitData8(I2C1, (*data++));						//Write data in Transmit Data register. TXE flag is cleared by writing data in TXDR register
 			length--;
 		}
 
-	LL_I2C_GenerateStopCondition(I2C1);							//Generate Stop condition
+	if(stop) {
+		while(!LL_I2C_IsActiveFlag_TXE(I2C1));
+		LL_I2C_GenerateStopCondition(I2C1);								//Generate Stop condition
+	}
+
 }
 
 void i2cRead(uint8_t address, uint8_t *data, uint8_t length)
 {
-	/* (1) Prepare acknowledge for Master data reception ************************/
-	LL_I2C_AcknowledgeNextData(I2C1, LL_I2C_ACK);
+	LL_I2C_AcknowledgeNextData(I2C1, LL_I2C_ACK);						//Prepare acknowledge for Master data reception
 
-		LL_I2C_GenerateStartCondition(I2C1);						//Initiate a Start condition to the Slave device
+	LL_I2C_GenerateStartCondition(I2C1);								//Initiate a Start condition to the Slave device
 
-		while(!LL_I2C_IsActiveFlag_SB(I2C1));						//wait until Start Bit transmitted (SB flag raised)
+	while(!LL_I2C_IsActiveFlag_SB(I2C1));								//wait until Start Bit transmitted (SB flag raised)
 
-	LL_I2C_TransmitData8(I2C1, (address << 1) | I2C_REQUEST_WRITE);	//Send Slave address with a 7-Bit SLAVE_OWN_ADDRESS for a write request
+	LL_I2C_TransmitData8(I2C1, (address << 1) | I2C_REQUEST_READ);		//Send Slave address with a 7-Bit SLAVE_OWN_ADDRESS for a write request
+
+	while(!LL_I2C_IsActiveFlag_ADDR(I2C1));								//wait until Address Acknowledgement received (ADDR flag raised)
+
+	if(1 == length)														//for one-byte reception NAK is activated here
+		LL_I2C_AcknowledgeNextData(I2C1, LL_I2C_NACK);
+
+	LL_I2C_ClearFlag_ADDR(I2C1);										//Clear ADDR flag value in ISR register
+
+	//here master is in receive mode activated by I2C_REQUEST_READ bit
+	while(length > 1)													//receive data
+		if(LL_I2C_IsActiveFlag_RXNE(I2C1)) {							//Check RXNE flag value in ISR register and read next data byte
+			(*data++) = LL_I2C_ReceiveData8(I2C1);						//Read data in Receive Data register. RXNE flag is cleared by reading data from RXDR register
+			length--;
+		}
+
+
+	LL_I2C_AcknowledgeNextData(I2C1, LL_I2C_NACK);						//generate NACK
+	LL_I2C_GenerateStopCondition(I2C1);									//and Stop condition after receiving next byte
+
+	while(!LL_I2C_IsActiveFlag_RXNE(I2C1));								//get the last data byte
+	*data = LL_I2C_ReceiveData8(I2C1);
 }
-
-
-
-
-
-
 
 
 inline void boardGreenLedOn(void)
