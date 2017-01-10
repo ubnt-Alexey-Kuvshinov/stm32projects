@@ -632,9 +632,10 @@ typedef enum
 typedef enum
 {
 	//Radio communication protocol defines
-	RMT_COMMUNICATION_REQUEST 		= 0xAA,							//to CC - request for concentrator channel to send data to, format: AA (msgID), XX(delay in seconds)
-	RMT_COMMUNICATION_SCHEDULING 	= 0xAB,							//from CC - time and channel parameters for sending data, format: AB, XX (freq LSB), XX (freq MidSB), XX (freq MSB), XX(delay in seconds), XX(bandwidth), XX(spreading factor), XX(coding rate), XX(explicit header)
-	RMT_COMMUNICATION_DATA			= 0xAC,							//to CD - data dump, format:
+	RMT_COMMUNICATION_REQUEST 			= 0xAA,						//to CC - request for concentrator channel to send data to, format: AA (msgID), XX(delay in seconds)
+	RMT_COMMUNICATION_SCHEDULING 		= 0xAB,						//from CC - time and channel parameters for sending data, format: AB, XX (freq LSB), XX (freq MidSB), XX (freq MSB), XX(delay in seconds), XX(bandwidth), XX(spreading factor), XX(coding rate), XX(explicit header)
+	RMT_COMMUNICATION_DATA				= 0xAC,						//to CD - data dump, format:
+	RMT_COMMUNICATION_DATA_CONFIRMATION	= 0xAD,						//from CD - data dump confirmation, may have individual confirmations for data fields sent
 } RadioMessageTypes;
 
 typedef enum
@@ -645,6 +646,7 @@ typedef enum
 	RMDT_ALTIMETER,													//altimeter information: temperature
 	RMDT_TIME,														//internal time of a device
 	RMDT_BATTERY,													//battery level
+	RMDT_PICTURE,													//image data
 } RadioMessageDataTypes;
 
 typedef enum
