@@ -8,6 +8,11 @@
 *.so
 *.mk
 *.d
+*.bin
+*.hml
+*.map
+*.elf
+*.cfg
 
 # Packages #
 ############
