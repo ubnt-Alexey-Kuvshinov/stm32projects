@@ -17,6 +17,10 @@
 #include "stm32l0xx_ll_pwr.h"
 #include "stm32l0xx_ll_rcc.h"
 #include "stm32l0xx_ll_i2c.h"
+
+#include "stm32l0xx_hal_flash.h"
+
+
 #include "stdlib.h"
 #include "radio.h"
 #include "gps.h"
@@ -222,8 +226,7 @@ typedef enum
 	STATE_EXT_EVENT,													//processing wake-up from accelerometer
 	STATE_WAITING_INPUT,												//waiting for user input
 	STATE_TAKING_PICTURE,												//transferring image using user output buffer, user input unavailable during this time
-//	STATE_RADIO_TRANSMITTING,											//transmitting from the radio
-//	STATE_RADIO_RECEIVING,												//radio is receiving
+	STATE_TRANSMITTING_PICTURE,											//transmitting an image over the radio
 } System_States;
 
 typedef enum
@@ -263,6 +266,7 @@ typedef struct {
 
 #define TIMER_SCHEDULE_SIZE	6											//max number of events that can be scheduled
 
+/*
 typedef struct {
 	union {
 		struct  {
@@ -274,7 +278,29 @@ typedef struct {
 	};
 	uint32_t event;														//event to trigger when it's time expires
 } TimerQueue;
+*/
 
+typedef struct  {
+	uint16_t timeout;													//number of LPTIM ticks remaining before triggering event
+	uint16_t event;														//timer event
+} TimerQueueEntry;
+
+typedef enum {
+	DDD_PICTURE_UNCONFIRMED,											//Concentrator did not confirm reception of image data
+	DDD_PICTURE_RESEND,													//Concentrator requests image data retransmission
+	DDD_PICTURE_NEXT,													//Concentrator confirms reception of image data
+} DeviceDataDefines;
+
+typedef struct  {
+	uint8_t pictureSize;												//image size in data packets
+	uint8_t picturePacketNumber;										//current image packet for transmission
+	uint8_t pictureConfirmation;										//image packet transmission status: DDD_PICTURE_UNCONFIRMED / RESEND / NEXT
+	uint8_t pictureRetransmissions;										//number of times same image packet was retransmitted
+} DeviceDataFields;
+
+extern DeviceDataFields DeviceData;
+
+extern uint16_t TimerCounter;											//1/1024s down counter
 
 extern uint32_t HardwareEvents;											//combination of all current hardware events
 extern uint16_t SoftwareEvents;											//e.g. new command received
@@ -290,7 +316,8 @@ extern uint8_t Uart2RxBuffer[CAMERA_BUFFER_SIZE];
 extern uint8_t Uart2RxCounter;
 extern TxUart2 Uart2Tx;
 
-extern TimerQueue timerSchedule[TIMER_SCHEDULE_SIZE];
+//extern TimerQueue timerSchedule[TIMER_SCHEDULE_SIZE];
+extern TimerQueueEntry timerSchedule[TIMER_SCHEDULE_SIZE];
 
 extern int32_t tmp;
 extern uint8_t uint8tmp;
@@ -347,7 +374,8 @@ void i2cWrite(uint8_t address, uint8_t *data, uint8_t length, uint8_t stop);
 void i2cRead(uint8_t address, uint8_t *data, uint8_t length);
 
 //void startLpTimer(uint16_t timeout);
-void setTimer(uint32_t timeout, uint32_t event);
+//void setTimer(uint32_t timeout, uint32_t event);
+void setTimer(uint16_t timeout, uint16_t event);
 
 void enterSleep(void);
 void enterStandby(void);

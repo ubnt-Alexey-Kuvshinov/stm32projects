@@ -7,7 +7,7 @@ uint32_t HardwareEvents = HWE_KEEP_CPU_RUNNING;
 uint16_t SoftwareEvents;
 uint32_t EventMask;
 
-const uint32_t * const DeviceID = (uint32_t *)0x1FF800D0;
+const uint32_t * const DeviceID = (uint32_t *)0x1FF80050;
 
 uint8_t Uart1RxBuffer[32];
 uint8_t Uart1RxCounter;
@@ -15,13 +15,14 @@ TxUart1 Uart1Tx;
 
 uint8_t Uart1Command[sizeof(Uart1RxBuffer)];
 
-uint8_t Uart2RxBuffer[CAMERA_BUFFER_SIZE];
+uint8_t Uart2RxBuffer[CAMERA_BUFFER_SIZE] __attribute__((aligned(0x04)));
 uint8_t Uart2RxCounter;
 TxUart2 Uart2Tx;
 
+TimerQueueEntry timerSchedule[TIMER_SCHEDULE_SIZE];
+uint16_t TimerCounter;
 
-
-TimerQueue timerSchedule[TIMER_SCHEDULE_SIZE];
+DeviceDataFields DeviceData;
 
 int32_t tmp;
 uint8_t uint8tmp;
@@ -231,7 +232,7 @@ void stateMachine(void)
 					break;
 				case RC_GET_PICTURE:
 					CameraTask(CTC_RESET, 0);
-					CameraTask(CTC_START, Uart1Command[2]);											//start picture taking process
+					CameraTask(CTC_START, Uart1Command[2]);							//start picture taking process
 					DeviceState.StateAndSubstate = STATE_TAKING_PICTURE;
 					break;
 
@@ -252,6 +253,8 @@ void stateMachine(void)
 				CLEAR_EVENT(HWE_INPUT_TIMEOUT);
 				//DeviceState.StateAndSubstate = STATE_WAITING_INPUT;
 				setTimer(timer_seconds(10), HWE_INPUT_TIMEOUT);						//restart inactivity timer
+
+//				setTimer(20, HWE_INPUT_TIMEOUT);						//restart inactivity timer
 				break;
 
 
@@ -268,14 +271,6 @@ void stateMachine(void)
 
 			break;	//default substate
 		}			//switch substate
-
-//		uint8tmp = CameraTask(CTC_GET_STATE, 0);
-//		if((CTS_IDLE == uint8tmp) || (CTS_FAILED == uint8tmp)) {
-//			CameraTask(CTC_RESET, 0);
-//			CameraTask(CTC_START, 0);												//start mining for GPS data
-//			boardWhiteLedToggle();
-//		}
-
 		break;		//case STATE_WAITING_INPUT
 
 		case STATE_TAKING_PICTURE:
@@ -290,29 +285,80 @@ void stateMachine(void)
 				{
 					CLEAR_EVENT(HWE_INPUT_TIMEOUT);
 					boardGreenLedToggle();
-					uint8tmp = CameraTask(CTC_GET_STATE, 0);
-					if((CTS_SUCCESS == uint8tmp) || (CTS_FAILED == uint8tmp))
+
+					switch(CameraTask(CTC_GET_STATE, 0)) {
+					case CTS_FAILED:
 						DeviceState.StateAndSubstate = STATE_WAITING_INPUT;
-					else
+						break;
+					case CTS_SUCCESS:
+						DeviceState.StateAndSubstate = STATE_TRANSMITTING_PICTURE;
+						break;
+					default:
 						setTimer(timer_milliseconds(330), HWE_INPUT_TIMEOUT);		//keep waiting for task completion
-					break;
+					}
 				}
 
-				if(HardwareEvents & HWE_UART1_COMMAND)									//new command received
+				if(HardwareEvents & HWE_UART1_COMMAND)								//new command received
 				{
 					CLEAR_EVENT(HWE_UART1_COMMAND);
 
-					switch(Uart1Command[1])	{											//parse the command
+					switch(Uart1Command[1])	{										//parse the command
 					case RC_PICTURE_DATA:
-						if(Uart1Command[2])							//resend data
+						if(Uart1Command[2])											//resend data
 							sendUart1Message();
-						else										//get next data
+						else														//get next data
 							CameraTask(CTC_GET_NEXT_DATA, 0);
 						break;
 					}
 				}
 			}
 			break;	//STATE_TAKING_PICTURE
+
+		case STATE_TRANSMITTING_PICTURE:
+			switch(DeviceState.substate)
+			{
+			case STATE_INIT:
+				RadioTask(RTC_RESET, 0);											//start RFing picture process
+				RadioTask(RTC_START, 0);
+				DeviceData.picturePacketNumber = 0;
+				DeviceData.pictureRetransmissions = 0;
+				setTimer(timer_milliseconds(50), HWE_INPUT_TIMEOUT);				//restart inactivity timer
+				DeviceState.substate = STATE_BUSINESS;
+				break;
+			default:
+				if(HardwareEvents & HWE_INPUT_TIMEOUT)
+				{
+					CLEAR_EVENT(HWE_INPUT_TIMEOUT);
+					//boardGreenLedToggle();
+
+					switch(RadioTask(RTC_GET_STATE, 0)) {
+					case RTS_SUCCESS:
+						if (DDD_PICTURE_NEXT == DeviceData.pictureConfirmation)
+							if(DeviceData.picturePacketNumber >= DeviceData.pictureSize) {	//all picture transmitted
+								uart1SendText("picture successfully transmitted");
+								DeviceData.pictureSize = 0;							//there's no more picture in the device
+								DeviceState.StateAndSubstate = STATE_WAITING_INPUT;
+								break;
+							} else {
+								DeviceData.picturePacketNumber++;
+								DeviceData.pictureRetransmissions = 0;
+							}
+					case RTS_FAILED:
+					case RTS_IDLE:
+						if(DeviceData.pictureRetransmissions++ < 3) {
+							RadioTask(RTC_RESET, 0);								//transmit picture packet
+							RadioTask(RTC_START, 0);
+						} else {
+							uart1SendText("picture transmission failed");
+							DeviceState.StateAndSubstate = STATE_WAITING_INPUT;
+							break;
+						}
+					default:
+						setTimer(timer_milliseconds(50), HWE_INPUT_TIMEOUT);		//restart inactivity timer
+					}
+				}
+			}	//switch(DeviceState.substate)
+			break;	//STATE_TRANSMITTING_PICTURE
 
 		case STATE_IDLE:
 			LL_RTC_ALMB_Disable(RTC);

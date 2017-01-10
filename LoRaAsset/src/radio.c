@@ -17,14 +17,12 @@
 #define RADIO_RX_TIMEOUT		timer_seconds(2)						//RX timeout expressed in LED blinks
 
 uint8_t RadioBuffer[RADIO_BUFFER_SIZE] __attribute__ ((aligned (4)));
-
-RadioSettings radioControlTxSettings = {{0xC0E4, RBW72_7, RSF_12, RCR_4_of_5, REH_EXPLICIT}};
+//RadioSetCommunicationParameters(0xC0E4, RBW_7, RSF_12, RCR_4_of_5, REH_EXPLICIT);
+RadioSettings radioControlTxSettings = {{0xC0E4, RBW_7, RSF_12, RCR_4_of_5, REH_EXPLICIT}};
 RadioSettings radioDataTxSettings = {};
 //RadioSettings radioDataRxSettings = {};
 
-
 //fq is actual frequency in 61.035Hz steps in reversed order
-//void RadioSetCommunicationParameters(uint32_t fq, RadioBW1272 bw, RadioSF sf, RadioCR cr, RadioEH eh)
 void RadioSetCommunicationParameters(RadioSettings *rs)
 {
 	uint32tmp = (0x00 << 8) | RC_SET_MODEM_MODE;						//put device to sleep to set lora mode
@@ -34,41 +32,62 @@ void RadioSetCommunicationParameters(RadioSettings *rs)
 	uint32tmp = (0x81 << 8) | RC_SET_MODEM_MODE;						//move to standby mode for further programming
 	spiAccessRegisters((uint8_t *)&uint32tmp, 2);
 
-//	uint32tmp = (0x00 << 24) | (0xC0 << 16) | (0xE4 << 8) | RC_SET_FREQUENCY;				//set 915MHz
 	uint32tmp = (rs->fq << 8) | RC_SET_FREQUENCY;						//frequency in 61.035Hz steps in reversed order
 	spiAccessRegisters((uint8_t *)&uint32tmp, 4);
 
-	uint32tmp = (0x8F << 8) | RC_SET_PA_CONFIG;							//output from PA not RFO pin, use max power
-	spiAccessRegisters((uint8_t *)&uint32tmp, 4);
+	uint32tmp = (0xCF << 8) | RC_SET_PA_CONFIG;							//output from PA not RFO pin, use max power
+	spiAccessRegisters((uint8_t *)&uint32tmp, 2);
 
 	uint32tmp = RC_SET_FIFO_POINTER;									//set FIFO pointer, TX and RX base addresses to 00
 	spiAccessRegisters((uint8_t *)&uint32tmp, 4);
 
-	//uint32tmp = (0x60 << 24) | (0xC2 << 16) | (0x0B << 8) | RC_SET_MODEM_CONFIG12_;			//set SF12, CR 4/5, CRC, Explicit header
-	uint32tmp = ((rs->sf << 4) | 0x04) << 16;							//SF and  LNA gain set by the internal AGC loop
-	uint32tmp |= ((rs->bw << 6) | (rs->cr << 3) | (rs->eh << 2) | 0x03) << 8;	//BW, SF, CR, EH as well as hardcoded payload CRC and LowDataRateOptimize enabled
+	uint32tmp = ((rs->sf << 4) | 0x04) << 16;							//SF and RxPayloadCrcOn is ON
+	uint32tmp |= ((rs->bw << 4) | (rs->cr << 1) | rs->eh) << 8;			//BW, CR, and  EH
 	uint32tmp |= RC_SET_MODEM_CONFIG12_;
 	spiAccessRegisters((uint8_t *)&uint32tmp, 3);
 
-	uint32tmp  = (0x03 << 8) | RC_SET_DETECTION_OPTIMIZE;				//TODO: calculate Detection Optimize depending on BW and SF)
+	uint32tmp  = (0x0C << 8) | RC_SET_MODEM_CONFIG3;					//LowDataRateOptimize is ON and LNA gain set by the internal AGC loop
+	spiAccessRegisters((uint8_t *)&uint32tmp, 2);
+
+	uint32tmp  = (0x03 << 8) | RC_SET_DETECTION_OPTIMIZE;				//TODO: calculate Detection Optimize depending on BW and SF
 	spiAccessRegisters((uint8_t *)&uint32tmp, 2);
 }
 
-//RadioSetCommunicationParameters() should be called before to set FIFO pointers and RX parameters
-void RadioTransmit(uint8_t *data, uint8_t length)
+void RadioStartMessage(RadioMessageTypes msgType)
 {
-	driveRfSwitch(0x04);												//set to TX from PA
-//	uint32tmp = (0x00 << 16) | (0x00 << 8) | RC_SET_FIFO_POINTER;		//set FIFO and TX base addresses to 00
-
 	uint32tmp = (0x81 << 8) | RC_SET_MODEM_MODE;						//move to standby mode for programming
 	spiAccessRegisters((uint8_t *)&uint32tmp, 2);
 
+	uint32tmp = RC_SET_FIFO_POINTER;									//set FIFO pointer, TX and RX base addresses to 00
+	spiAccessRegisters((uint8_t *)&uint32tmp, 4);
+
+	uint32tmp = (msgType << 8) | RC_SET_FIFO;							//insert message type
+	spiAccessRegisters((uint8_t *)&uint32tmp, 2);
+
+	uint32tmp = *DeviceID;
+	spiAccessRegisters2(RC_SET_FIFO, (uint8_t *)&uint32tmp, 4);			//insert Device ID
+}
+
+void RadioAddToMessage(uint8_t *data, uint8_t length)
+{
 	spiAccessRegisters2(RC_SET_FIFO, data, length);						//fill FIFO with the data to transmit
-	uint32tmp = (length << 8) | RC_SET_PAYLOAD_LENGTH;					//set message length
+}
+
+//RadioSetCommunicationParameters() should be called before to set FIFO pointers and TX parameters
+void RadioTransmit()
+{
+	driveRfSwitch(0x05);												//set to TX from PA
+
+	uint32tmp = RC_GET_FIFO_POINTER;									//set message length, assuming it starts from 0x00 fifo address
+	spiAccessRegisters((uint8_t *)&uint32tmp, 2);
+	uint32tmp = (uint32tmp & 0xFF00) | RC_SET_PAYLOAD_LENGTH;
 	spiAccessRegisters((uint8_t *)&uint32tmp, 2);
 
 	uint32tmp = (0x40 << 8) | RC_SET_DIO_MAPPINGS;						//configure DIO0 for TX done interrupt TODO: touch only DIO0
 	spiAccessRegisters((uint8_t *)&uint32tmp, 2);
+
+//	uint32tmp = (0xFF << 8) | RC_SET_IRQ_FLAGS;						//get and reset all last packet IRQ flags, resetting is important or new interrupt will not trigger unless radio is put to receive mode again(probably after transition to other mode in addition)
+//	spiAccessRegisters(RadioBuffer, 2);
 
 	uint32tmp = (0x83 << 8) | RC_SET_MODEM_MODE;						//start transmission
 	spiAccessRegisters((uint8_t *)&uint32tmp, 2);
@@ -76,12 +95,11 @@ void RadioTransmit(uint8_t *data, uint8_t length)
 	HardwareEvents |= HWE_RADIO_TRANSMITTING;
 }
 
-
-//void RadioReceive(uint32_t fq, RadioBW1272 bw, RadioSF sf, RadioCR cr, RadioEH eh)
 //RadioSetCommunicationParameters() should be called before to set FIFO pointers and TX parameters
 void RadioReceive(void)
 {
-	driveRfSwitch(0x07);												//set to RX
+//	driveRfSwitch(0x07);												//set to RX
+	driveRfSwitch(0x03);												//set to RX
 //	uint32tmp = (0x00 << 16) | (0x00 << 8) | RC_SET_FIFO_POINTER;		//set FIFO and TX base addresses to 00
 //	spiAccessRegisters((uint8_t *)&uint32tmp, 3);
 
@@ -101,7 +119,7 @@ static void RadioTaskGoToFailed(RadioTaskStatus *state)
 {
 	CLEAR_EVENT(HWE_RADIO_TRANSMITTING);
 	CLEAR_EVENT(HWE_RADIO_RECEIVING);
-//	setPortBit(RADIO_RESET_PORT, RADIO_RESET_BIT);						//turn the radio chip off, It is the opposite for SX1276!
+//	resetPortBit(RADIO_RESET_PORT, RADIO_RESET_BIT);						//turn the radio chip off, It is the opposite for SX1276!
 	boardRedLedOn();
 	*state = RTS_FAILED;
 }
@@ -118,12 +136,10 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 		if(RTS_IDLE != state)
 			return RTS_FAILED;
 
-		resetPortBit(RADIO_RESET_PORT, RADIO_RESET_BIT);				//turn on the radio chip *It is setPortBit for SX1276!
+//		setPortBit(RADIO_RESET_PORT, RADIO_RESET_BIT);					//turn on the radio chip
 		setTimer(RADIO_ENABLE_TIMEOUT, HWE_RADIO_TIMEOUT);				//wait until radio chip is ready
 		//TODO: increase the delay if needed to satisfy minimum CC request/reply delay
-		RadioBuffer[1] = parameter / 1024 + 1;							//express data communication delay in seconds rounded to the greater
-		//TODO: get exact time for planned data dump in UTC standard
-//		*(RadioBuffer + 4) = RadioBuffer[1] * 1024 - 16;				//express data communication delay in seconds rounded to the greater
+//		RadioBuffer[1] = parameter / 1024 + 1;							//express data communication delay in seconds rounded to the greater
 		state = RTS_ACTIVATING_RADIO;
 		break;
 	case RTC_GET_STATE:													//request for the task progress/state
@@ -145,33 +161,12 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 		case HWE_RADIO_TIMEOUT:
 			switch (state) {
 			case RTS_ACTIVATING_RADIO:
-				RadioBuffer[0] = 0;
 				boardRedLedOn();
-				setTimer(RADIO_LED_TIMEOUT, HWE_RADIO_TIMEOUT);
-				state = RTS_FLASHING_CC_REQUEST;
-				break;
-			case RTS_FLASHING_CC_REQUEST:
-			case RTS_FLASHING_DATA_TX:
-				boardRedLedToggle();
-				if(++RadioBuffer[0] > RADIO_TX_TIMEOUT_BLINKS / 2)
-					if(RTS_FLASHING_CC_REQUEST == state) {
-						RadioSetCommunicationParameters(&radioControlTxSettings);
-						RadioBuffer[0] = RMT_COMMUNICATION_REQUEST;
-						//RadioBuffer[1] is already set with the delay value
-						RadioBuffer[2] = *DeviceID;
-						RadioBuffer[3] = *DeviceID >> 8;
-						RadioBuffer[4] = *DeviceID >> 16;
-						RadioBuffer[5] = *DeviceID >> 24;
-						RadioTransmit(RadioBuffer, RMS_CC_REQUEST);
-						RadioBuffer[0] = 0;
-						setTimer(RADIO_LED_TIMEOUT, HWE_RADIO_TIMEOUT);
-						state = RTS_TRANSMITTING_CC_REQUEST;
-					} else {
-						boardRedLedOff();
-						state = RTS_IDLE;
-					}
-				else
-					setTimer(RADIO_LED_TIMEOUT, HWE_RADIO_TIMEOUT);
+				RadioSetCommunicationParameters(&radioControlTxSettings);
+				RadioStartMessage(RMT_COMMUNICATION_REQUEST);
+				RadioTransmit();								//Transmit Communication Request
+				setTimer(RADIO_TX_TIMEOUT, HWE_RADIO_TIMEOUT);
+				state = RTS_TRANSMITTING_CC_REQUEST;
 				break;
 			case RTS_TRANSMITTING_CC_REQUEST:
 			case RTS_TRANSMITTING_DATA:
@@ -203,27 +198,41 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 			case RTS_WAITING_FOR_DATA_SCHEDULE:
 				boardRedLedOn();
 				RadioSetCommunicationParameters(&radioDataTxSettings);
-				uint8tmp = 0;
+//				uint8tmp = 0;
 
 				//pack device data to radio message and air it
 
-				RadioBuffer[uint8tmp++] = RMT_COMMUNICATION_DATA;
+				RadioStartMessage(RMT_COMMUNICATION_DATA);
 
 				if(GTS_SUCCESS == GpsTask(GTC_GET_STATE, 0)) {			//insert GPS data if available
+					RadioBuffer[0] = RMDT_GPS;
+					RadioAddToMessage(RadioBuffer, 1);
+					RadioAddToMessage((uint8_t *)&GpsData, sizeof(GPS));
+//					RadioBuffer[uint8tmp++] = RMDT_GPS;
+//					memmove(&RadioBuffer[uint8tmp], &GpsData, sizeof(GPS));
+//					uint8tmp += sizeof(GPS);
 					GpsTask(GTC_RESET, 0);
-					RadioBuffer[uint8tmp++] = RMDT_GPS;
-					memmove(&RadioBuffer[uint8tmp], &GpsData, sizeof(GPS));
-					uint8tmp += sizeof(GPS);
 				}
 
 				if(ATS_SUCCESS == AltimeterTask(ATC_GET_STATE, 0)) {	//insert altimeter data if available
+//					RadioBuffer[uint8tmp++] = RMDT_ALTIMETER;
+//					RadioBuffer[uint8tmp++] = AltimeterData.temperature_whole;
+//					RadioBuffer[uint8tmp++] = AltimeterData.temperature_fractional;
+					RadioBuffer[0] = RMDT_ALTIMETER;
+					RadioBuffer[1] = AltimeterData.temperature_whole;
+					RadioBuffer[2] = AltimeterData.temperature_fractional;
+					RadioAddToMessage(RadioBuffer, 3);
 					AltimeterTask(ATC_RESET, 0);
-					RadioBuffer[uint8tmp++] = RMDT_ALTIMETER;
-					RadioBuffer[uint8tmp++] = AltimeterData.temperature_whole;
-					RadioBuffer[uint8tmp++] = AltimeterData.temperature_fractional;
 				}
 
-				RadioTransmit(RadioBuffer, uint8tmp);					//send the data
+				if(DeviceData.pictureSize) {							//insert picture data if available
+					RadioBuffer[0] = RMDT_PICTURE;						//TODO: add a function to add single byte by value
+					RadioAddToMessage(RadioBuffer, 1);
+					RadioAddToMessage((uint8_t *)(0x08008000 + DeviceData.picturePacketNumber * FLASH_PAGE_SIZE), FLASH_PAGE_SIZE);
+					DeviceData.pictureConfirmation = DDD_PICTURE_UNCONFIRMED;
+				}
+
+				RadioTransmit();										//send the data
 
 				RadioBuffer[0] = 0;										//move to transmitting state
 				setTimer(RADIO_LED_TIMEOUT, HWE_RADIO_TIMEOUT);
@@ -236,7 +245,6 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 			case RTS_TRANSMITTING_CC_REQUEST:							//transmission finished
 			case RTS_TRANSMITTING_DATA:
 				boardRedLedOff();
-//				boardGreenLedOn();
 				if(RTS_TRANSMITTING_CC_REQUEST == state) {
 					uart1SendText("radio transmitted CC request");
 					RadioReceive();
@@ -244,9 +252,12 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 					state = RTS_LISTENING_CC_REPLY;
 				} else {
 					uart1SendText("radio transmitted data");
-					CLEAR_EVENT(HWE_RADIO_TRANSMITTING);
-					CLEAR_EVENT(HWE_RADIO_RECEIVING);
-					state = RTS_IDLE;
+//					CLEAR_EVENT(HWE_RADIO_TRANSMITTING);
+//					CLEAR_EVENT(HWE_RADIO_RECEIVING);
+//					state = RTS_IDLE;
+					RadioReceive();
+					setTimer(RADIO_RX_TIMEOUT, HWE_RADIO_TIMEOUT);
+					state = RTS_RECEIVING_DATA_CONFIRMATION;
 				}
 				break;
 			case RTS_RECEIVING_CC_REPLY:								//CC reply received
@@ -257,34 +268,48 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 				RadioBuffer[1] = 0xFF;
 				spiAccessRegisters(RadioBuffer, 2);
 
-				RadioBuffer[6] = RC_GET_RX_BYTES_COUNT;					//get the number of received bytes
-				spiAccessRegisters(RadioBuffer + 6, 2);					//RadioBuffer[7] keeps received size
+				spiAccessRegisters2(RC_GET_RX_BYTES_COUNT, &uint8tmp, 1);//uint8tmp keeps received size
 
-				if(RadioBuffer[7] >= RMS_MINIMUM) {						//make sure the message is not too short
+				if(uint8tmp >= RMS_MINIMUM) {							//make sure the message is not too short
 
 					RadioBuffer[2] = RC_GET_FIFO_RX_LAST_PKT_ADDR;		//get the last received packet start address in FIFO
 					spiAccessRegisters(RadioBuffer + 2, 2);				//RadioBuffer[3] keeps last packet address in FIFO
 					RadioBuffer[2] = RC_SET_FIFO_POINTER;				//set the FIFO pointer to the beginning of received packet
 					spiAccessRegisters(RadioBuffer + 2, 2);
 
-					spiAccessRegisters2(RC_GET_FIFO, RadioBuffer, RMS_MINIMUM);	//get Device ID and message type
+//					spiAccessRegisters2(RC_GET_FIFO, RadioBuffer, uint8tmp);	//read the message: Device ID, message type, etc TODO: implement max size check
+					spiAccessRegisters2(RC_GET_FIFO, RadioBuffer, RMS_MINIMUM);	//read Device ID and message type
 
 					if(*((int*)RadioBuffer) == *DeviceID) {				//make sure the message is for this device
 
-						switch(RadioBuffer[RMF_MSG_TYPE]) {
-						case RMT_COMMUNICATION_SCHEDULING:
-							if(RadioBuffer[7] != RMS_CC_REPLY) {
-								uart1SendText("CC reply has wrong size:");
-								RadioTaskGoToFailed(&state);
-							} else {											//get the channel and time settings
+						//here we have a message intended for this device, lets see what it is
+						if(RTS_RECEIVING_CC_REPLY == state) {
+
+							if((RMT_COMMUNICATION_SCHEDULING == RadioBuffer[RMF_MSG_TYPE]) && (RMS_CC_REPLY == uint8tmp)) {
 								spiAccessRegisters2(RC_GET_FIFO, radioDataTxSettings.settingsArray, 8);
-								setTimer(timer_seconds(radioDataTxSettings.settingsArray[3] - 1), HWE_RADIO_TIMEOUT);	//TODO: implement actual time adjustment based on RX parameters
+								setTimer(radioDataTxSettings.settingsArray[3], HWE_RADIO_TIMEOUT);	//TODO: implement actual time adjustment based on RX parameters
 								state = RTS_WAITING_FOR_DATA_SCHEDULE;			//TODO: implement going to deep sleep wait state logic
 								uart1SendText("radio received CC message:");
 								goto gotit;
 							}
-							break;
+						} else if(RMT_COMMUNICATION_DATA_CONFIRMATION == RadioBuffer[RMF_MSG_TYPE]) {	//radio task is in RTS_RECEIVING_DATA_CONFIRMATION state
+							int i;
 
+							uint8tmp -= RMS_MINIMUM;
+							spiAccessRegisters2(RC_GET_FIFO, RadioBuffer, uint8tmp);
+
+							for (i = 0; i < uint8tmp; )
+								switch(RadioBuffer[i]) {					//TODO: implement size checks
+								case RMDT_PICTURE:
+									DeviceData.pictureConfirmation = RadioBuffer[i + 1];
+									i += 2;
+									break;
+								default:
+									i = uint8tmp;
+								}
+
+							state = RTS_SUCCESS;
+							goto gotit;
 						}
 					}
 				}
@@ -300,8 +325,8 @@ gotit:
 				spiAccessRegisters(RadioBuffer + 2, 2);
 
 //				RadioBuffer[0] = Uart1Tx.size;
-				spiAccessRegisters2(RC_GET_FIFO, Uart1Tx.data + Uart1Tx.size, RadioBuffer[7]);
-				Uart1Tx.size += RadioBuffer[7];
+				spiAccessRegisters2(RC_GET_FIFO, Uart1Tx.data + Uart1Tx.size, uint8tmp);
+				Uart1Tx.size += uint8tmp;
 
 				sendUart1Message();
 
@@ -318,6 +343,9 @@ gotit:
 				setTimer(RADIO_LED_TIMEOUT, HWE_RADIO_TIMEOUT);
 				RadioBuffer[0] = 0;
 				state = RTS_RECEIVING_CC_REPLY;
+				break;
+			case RTS_RECEIVING_DATA_CONFIRMATION:
+				boardGreenLedToggle();
 				break;
 			default:
 				uart1SendText("radio received unexpected DIO3 event");

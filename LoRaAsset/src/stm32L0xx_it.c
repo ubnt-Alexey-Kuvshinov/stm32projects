@@ -24,7 +24,7 @@ void HardFault_Handler(void)
   /* Go to infinite loop when Hard Fault exception occurs */
   while (1)
   {
-	  //void boardRedLedOn(void);
+	  boardRedLedToggle();
   }
 }
 
@@ -76,12 +76,14 @@ void EXTI4_15_IRQHandler(void)
 			HardwareEvents |= HWE_BUTTON_RELEASE;
 //		boardGreenLedToggle();
 	}
-	else */if(EXTI->PR & EXTI_PR_PIF12)					//DIO0 from the radio
-	{
+	else */
+	if(EXTI->PR & EXTI_PR_PIF12) {												//DIO0 from the radio
 		EXTI->PR |= EXTI_PR_PIF12;
 		HardwareEvents |= HWE_DIO0;
-	}
-	else
+	} else if(EXTI->PR & EXTI_PR_PIF15) {										//DIO3 from the radio
+		EXTI->PR |= EXTI_PR_PIF15;
+		HardwareEvents |= HWE_DIO3;
+	} else
 		ErrorHandler("IRQHandler error");
 }
 
@@ -127,7 +129,11 @@ void USART2_IRQHandler(void)
 		else
 			USART_ptr(USART_2)->RQR |= USART_RQR_RXFRQ;								//drop the byte, but clear USART_ISR_RXNE flag
 
-			HardwareEvents |= HWE_UART2_RX_EVENT;
+		if(HardwareEvents & HWE_UART2_RX_EVENT)
+			boardRedLedToggle();
+
+		HardwareEvents |= HWE_UART2_RX_EVENT;
+
 	} else if((USART_ptr(USART_2)->CR1 | USART_CR1_RXNEIE) && (USART_ptr(USART_2)->ISR & USART_ISR_ORE)) {	//overrun error occurred
 		USART_ptr(USART_2)->ICR |= USART_ICR_ORECF;									//clear overrun flag
 		//TODO: mark the message as invalid
@@ -154,7 +160,7 @@ void LPUART1_IRQHandler(void)
 
 		HardwareEvents |= HWE_LPUART_RX_EVENT;
 	} else if((USART_ptr(LPUART)->CR1 | USART_CR1_RXNEIE) && (USART_ptr(LPUART)->ISR & USART_ISR_ORE)) {	//overrun error occurred																//then it was triggered because of overrun error
-		USART_ptr(LPUART)->ICR |= USART_ICR_ORECF;								//clear overrun flag
+		USART_ptr(LPUART)->ICR |= USART_ICR_ORECF;									//clear overrun flag
 		//TODO: mark the message as invalid
 	} else if((USART_ptr(LPUART)->CR1 | USART_CR1_TCIE) && (USART_ptr(LPUART)->ISR & USART_ISR_TC)) {		//byte transmission finished
 		if(LpUartTx.counter >= LpUartTx.size)  {									//whole message is transmitted
@@ -187,7 +193,7 @@ void RTC_IRQHandler(void)
 
 		HardwareEvents |= timerSchedule[0].event;
 		timerSchedule[0].event = HWE_NO_EVENT;
-
+/*
 		if(timerSchedule[1].event) {												//there are more scheduled events, set AlarmB for the next one
 			memmove(&timerSchedule[0], &timerSchedule[1], (TIMER_SCHEDULE_SIZE - 1) * sizeof(TimerQueue));
 			timerSchedule[TIMER_SCHEDULE_SIZE - 1].event = HWE_NO_EVENT;			//make sure the last entry is free to use now
@@ -198,7 +204,7 @@ void RTC_IRQHandler(void)
 			LL_RTC_ALMB_SetMinute(RTC, __LL_RTC_CONVERT_BIN2BCD(timerSchedule[0].minutes));
 			LL_RTC_ALMB_Enable(RTC);
 		}
-	}
+*/	}
 
 	EXTI->PR = EXTI_PR_PIF17;														//Clear the EXTI's line Flag for RTC Alarms
 }
@@ -207,15 +213,31 @@ void RTC_IRQHandler(void)
 void LPTIM1_IRQHandler(void)
 {
 //	boardRedLedToggle();
+	LL_LPTIM_ClearFLAG_CMPM(LPTIM1);	//Clear Compare match flag
 
-	if(LL_LPTIM_IsActiveFlag_CMPM(LPTIM1))		//Compare match interrupt
-	  {
-//	    if(__HAL_LPTIM_GET_IT_SOURCE(hlptim, LPTIM_IT_CMPM) !=RESET)
-	    {
-	    	LL_LPTIM_ClearFLAG_CMPM(LPTIM1);	//Clear Compare match flag
-	    	HardwareEvents |= HWE_LPTIMER;
-	    }
-	  }
+	if(TimerCounter && !(--TimerCounter)){
+		uint32_t i, next = TIMER_SCHEDULE_SIZE;
 
-	  EXTI->PR = EXTI_IMR_IM29;														//Clear the EXTI's line Flag for LP timer
+		//find the expired event(s), note* there can be no such events, that is when current event was rescheduled for later, then just schedule the next closest event
+		//at the same time find the next event to schedule
+		for(i = 0; i < TIMER_SCHEDULE_SIZE; i++)
+			if(timerSchedule[i].event != HWE_NO_EVENT)
+				if (timerSchedule[i].timeout) {										//one of the next events to trigger
+					if ((next == TIMER_SCHEDULE_SIZE) || (timerSchedule[i].timeout < timerSchedule[next].timeout))
+						next = i;
+				} else {															//this is an expired event
+					HardwareEvents |= timerSchedule[i].event;
+					timerSchedule[i].event = HWE_NO_EVENT;
+				}
+
+		//schedule next event
+		if (next != TIMER_SCHEDULE_SIZE) {
+			TimerCounter = timerSchedule[next].timeout;								//set next event timeout
+
+			for(i = 0; i < TIMER_SCHEDULE_SIZE; i++)								//update other events timeout
+				timerSchedule[i].timeout -= TimerCounter;							//this would also zero just scheduled event time
+		}
+   }
+
+	EXTI->PR = EXTI_IMR_IM29;														//Clear the EXTI's line Flag for LP timer
 }

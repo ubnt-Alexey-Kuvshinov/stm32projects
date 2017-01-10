@@ -81,10 +81,10 @@ typedef struct {
 			uint8_t packetNumberLsb;												//image packet LSByte
 			uint8_t packetNumberMsb;												//image packet MSByte
 		};
-		int16_t packetNumber;														//image packet number
+		uint16_t packetNumber;														//image packet number
 	};
 
-	int16_t packetsNumber;															//event to trigger when it's time expires
+	uint16_t packetsNumber;															//total number of packages in an image
 } imageTransfer;
 
 imageTransfer packetsTracker;
@@ -101,6 +101,10 @@ uint8_t commands[][COMMAND_SIZE] =
 						 {CCC_START, CCC_NAK, 0x00, 0x00, 0x00, 0x00}};				//NAK				0x0F, Command ID, NAK counter, Error Code, 0x00
 
 uint8_t cam_command[COMMAND_SIZE];													//last command received from camera
+
+static uint16_t dataSize;
+static PictureSmStates PictureSmstate = PSMS_IDLE;
+
 
 
 static CameraCommandCodes getCommand(CommandSmCommands cmd)
@@ -149,10 +153,19 @@ static CameraCommandCodes getCommand(CommandSmCommands cmd)
 }
 
 
+//This function programs a half page. It is executed from the RAM.
+__attribute__((section(".RamFunc"))) void FlashHalfPageProg(uint32_t flash_addr, uint32_t *data) {
+	uint32_t count = 0;
+
+    while(count++ < 16U)
+      *(__IO uint32_t*) flash_addr = *data++;
+}
+
+
 PictureSmStates getPicture(PictureSmCommands cmd)
 {
-	static PictureSmStates state = PSMS_IDLE;
-	static uint16_t dataSize;
+//	static PictureSmStates state = PSMS_IDLE;
+//	static uint16_t dataSize;
 
 	switch(cmd) {
 	case PSMC_START:
@@ -160,42 +173,42 @@ PictureSmStates getPicture(PictureSmCommands cmd)
 		USARTx_RX_INTERRUPT_DISABLE(USART_2);										//disable receiver
 		Uart2RxCounter = 0;
 		USARTx_RX_INTERRUPT_ENABLE(USART_2);										//enable receiver
-		state = PSMS_RECEIVING_ID_1;
+		PictureSmstate = PSMS_RECEIVING_ID_1;
 		break;
 	case PSMC_UPDATE:
-//		USARTx_RX_INTERRUPT_DISABLE(USART_2);										//disable receiver
-		switch(state) {
+		USARTx_RX_INTERRUPT_DISABLE(USART_2);										//disable receiver
+		switch(PictureSmstate) {
 		case PSMS_RECEIVING_ID_1:
-			state = PSMS_RECEIVING_ID_2;
+			PictureSmstate = PSMS_RECEIVING_ID_2;
 			break;
 		case PSMS_RECEIVING_ID_2:
-			state = PSMS_RECEIVING_SIZE_1;
+			PictureSmstate = PSMS_RECEIVING_SIZE_1;
 			break;
 		case PSMS_RECEIVING_SIZE_1:
-			state = PSMS_RECEIVING_SIZE_2;
+			PictureSmstate = PSMS_RECEIVING_SIZE_2;
 			break;
 		case PSMS_RECEIVING_SIZE_2:
 			dataSize = (Uart2RxBuffer[3] << 8) | Uart2RxBuffer[2];
 			if((0 < dataSize) && (dataSize <= 128 - 6))
-				state = PSMS_RECEIVING_DATA;
+				PictureSmstate = PSMS_RECEIVING_DATA;
 			else
-				state = PSMS_FAILED;
+				PictureSmstate = PSMS_FAILED;
 			break;
 		case PSMS_RECEIVING_DATA:
 			if(Uart2RxCounter - 4 >= dataSize)
-				state = PSMS_RECEIVING_VC_1;
+				PictureSmstate = PSMS_RECEIVING_VC_1;
 			break;
 		case PSMS_RECEIVING_VC_1:
-			state = PSMS_RECEIVING_VC_2;
+			PictureSmstate = PSMS_RECEIVING_VC_2;
 			break;
 		case PSMS_RECEIVING_VC_2:
-			state = PSMS_DONE;
+			PictureSmstate = PSMS_DONE;
 			break;
 		case PSMS_DONE:
-			state = PSMS_FAILED;
+			PictureSmstate = PSMS_FAILED;
 			break;
 		}
-//		USARTx_RX_INTERRUPT_ENABLE(USART_2);										//enable receiver
+		USARTx_RX_INTERRUPT_ENABLE(USART_2);										//enable receiver
 		break;
 	case PSMC_GET_DATA: {
 		uint8_t i;
@@ -204,7 +217,7 @@ PictureSmStates getPicture(PictureSmCommands cmd)
 		USARTx_RX_INTERRUPT_DISABLE(USART_2);										//disable receiver making sure picture data is unchanged (though it's not supposed to)
 		startUart1Msg(RC_PICTURE_DATA);												//move data to computer
 
-		for(i = chksum = 0; i < dataSize + 4; i++) {
+		for(i = chksum = 0; i < dataSize + 4; i++) {								//calculate image packet check sum
 			addToUart1Msg(Uart2RxBuffer[i]);
 			chksum += Uart2RxBuffer[i];
 		}
@@ -212,17 +225,33 @@ PictureSmStates getPicture(PictureSmCommands cmd)
 		if(chksum != Uart2RxBuffer[i])
 			boardRedLedOn();
 		else {
-			addToUart1Msg(Uart2RxBuffer[i++]);
+			addToUart1Msg(Uart2RxBuffer[i++]);										//copy image packet
 			addToUart1Msg(Uart2RxBuffer[i]);
 			sendUart1Message();
 		}
 
+	    __disable_irq();															//Disable all IRQs to save the image packet into FLASH
+
+	    uint32tmp = 0x08008000 + ((Uart2RxBuffer[1] << 8) | Uart2RxBuffer[0]) * FLASH_PAGE_SIZE;
+
+	    FLASH->PECR &= ~FLASH_PECR_FPRG;
+		FLASH->PECR |= FLASH_PECR_ERASE;
+	    *(__IO uint32_t *)uint32tmp = (uint32_t)0;
+	    while ((FLASH->SR & FLASH_SR_BSY) != 0);
+	    FLASH->PECR &= ~FLASH_PECR_ERASE;
+	    FLASH->PECR |= FLASH_PECR_FPRG;
+
+		FlashHalfPageProg(uint32tmp, Uart2RxBuffer);
+		FlashHalfPageProg(uint32tmp + FLASH_PAGE_SIZE / 2, Uart2RxBuffer + FLASH_PAGE_SIZE / 2);
+
+	    __enable_irq();																//Enable IRQs
+
 		USARTx_RX_INTERRUPT_ENABLE(USART_2);										//enable receiver
-	}
+		}
 		break;
 	}
 
-	return state;
+	return PictureSmstate;
 }
 
 
@@ -255,6 +284,24 @@ uint32_t CameraTask(CameraTaskCommands command, uint32_t parameter)
 		else
 			commands[CC_INITIAL][CCP_PARAM_4] = 0x05;								//get QVGA picture
 
+		DeviceData.pictureSize = 0;													//this means the device does not have a picture
+
+		//unlock FLASH for storing image into
+		while ((FLASH->SR & FLASH_SR_BSY) != 0);									//Unlock the data EEPROM and FLASH_PECR register
+
+		if ((FLASH->PECR & FLASH_PECR_PELOCK) != 0) {								//Check if the PELOCK is unlocked
+			FLASH->PEKEYR = FLASH_PEKEY1;											//Perform unlock sequence
+			FLASH->PEKEYR = FLASH_PEKEY2;
+		}
+
+		if (((FLASH->PECR & FLASH_PECR_PELOCK) == 0) && ((FLASH->PECR & FLASH_PECR_PRGLOCK) != 0)) {	//Unlock the NVM program memory
+			FLASH->PRGKEYR = FLASH_PRGKEY1;											//Perform unlock sequence
+			FLASH->PRGKEYR = FLASH_PRGKEY2;
+		}
+
+		FLASH->PECR |= FLASH_PECR_PROG | FLASH_PECR_FPRG;							//unlock the flash
+
+		//initiate picture getting process
 		synchAttempts = 0;
 		commands[CC_ACK][CCP_PARAM_2] = commands[CC_ACK][CCP_PARAM_3] = commands[CC_ACK][CCP_PARAM_4] = 0;
 		getCommand(CSMC_START);														//start command tracking state machine
@@ -316,6 +363,7 @@ uint32_t CameraTask(CameraTaskCommands command, uint32_t parameter)
 				break;
 			case CTS_RESET:
 				state = CTS_FAILED;
+				FLASH->PECR &= ~(FLASH_PECR_PROG | FLASH_PECR_FPRG);				//lock FLASH back
 				break;
 			}	//switch (state)
 			break;
@@ -386,6 +434,7 @@ uint32_t CameraTask(CameraTaskCommands command, uint32_t parameter)
 					switch(getPicture(PSMC_UPDATE)) {
 					case PSMS_DONE:													//new packet received
 						getPicture(PSMC_GET_DATA);									//transfer the packet content out
+						setTimer(4*CAMERA_PICTURE_TIMEOUT, HWE_CAMERA_TIMEOUT);		//camera should respond with data within this time TODO: remove 4
 						break;														//wait for next packet external request
 					case PSMS_FAILED:
 						//do nothing wait for timeout to go to reset and then failed state
@@ -401,18 +450,21 @@ uint32_t CameraTask(CameraTaskCommands command, uint32_t parameter)
 		if(CTS_GETTING_PICTURE == state) {
 			if(++packetsTracker.packetNumber >= packetsTracker.packetsNumber) {
 				commands[CC_ACK][CCP_PARAM_3] = commands[CC_ACK][CCP_PARAM_4] = 0xF0;
-				sendUart2Message(commands[CC_ACK], COMMAND_SIZE);		//send the final GET_PICTURE ACK command
+				sendUart2Message(commands[CC_ACK], COMMAND_SIZE);					//send the final GET_PICTURE ACK command
 
-				startUart1Msg(RC_END_PICTURE);							//signal transfer completion to external consumer
+				startUart1Msg(RC_END_PICTURE);										//signal transfer completion to external consumer
 				sendUart1Message();
 
+				DeviceData.pictureSize = packetsTracker.packetsNumber;				//the device has a picture (assuming QVGA)
+
+				FLASH->PECR &= ~(FLASH_PECR_PROG | FLASH_PECR_FPRG);				//lock FLASH back
 				state = CTS_SUCCESS;
-			} else {													//initiate next packet reception
+			} else {																//initiate next packet reception
 				getPicture(PSMC_START);
 				commands[CC_ACK][CCP_PARAM_3] = packetsTracker.packetNumberLsb;
 				commands[CC_ACK][CCP_PARAM_4] = packetsTracker.packetNumberMsb;
-				setTimer(CAMERA_PICTURE_TIMEOUT, HWE_CAMERA_TIMEOUT);	//camera should respond with data within this time
-				sendUart2Message(commands[CC_ACK], COMMAND_SIZE);		//send GET_PICTURE ACK for next packet
+				setTimer(3*CAMERA_PICTURE_TIMEOUT, HWE_CAMERA_TIMEOUT);				//camera should respond with data within this time
+				sendUart2Message(commands[CC_ACK], COMMAND_SIZE);					//send GET_PICTURE ACK for next packet
 			}
 		}
 		break;

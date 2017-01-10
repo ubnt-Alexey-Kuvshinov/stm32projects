@@ -16,16 +16,14 @@
 typedef enum {
 	RTS_IDLE,											//resets radio task to idle, even if the task is in progress
 	RTS_ACTIVATING_RADIO,								//waiting for radio chip becoming ready after releasing it's reset line
-	RTS_FLASHING_CC_REQUEST,							//extra red LED blinking to make transmission process long enough to notice TODO: remove
 	RTS_TRANSMITTING_CC_REQUEST,
-	RTS_LISTENING_CC_REPLY,								//waiting for valid header
+	RTS_LISTENING_CC_REPLY,								//waiting for valid header from Control Channel
 	RTS_RECEIVING_CC_REPLY,
 	RTS_WAITING_FOR_DATA_SCHEDULE,						//waiting for the scheduled data transmission time, the channel parameters are known, data mining tasks can be running
 	RTS_WAITING_FOR_DS_STANDBY,							//same as before, but can go to deep sleep, the channel parameters must be saved and wake up event from StandBy implemented TODO: implement
 	RTS_TRANSMITTING_DATA,
-	RTS_FLASHING_DATA_TX,								//extra red LED blinking to make transmission process long enough to notice TODO: remove
-	RTS_LISTENING_DATA_CONFIRMATION,					//TODO: implement
-	RTS_RECEIVING_DATA_CONFIRMATION,					//TODO: implement
+	RTS_LISTENING_DATA_CONFIRMATION,					//waiting for valid header from Data Channel
+	RTS_RECEIVING_DATA_CONFIRMATION,
 	RTS_SUCCESS,
 	RTS_FAILED											//indicates failure of a command
 } RadioTaskStatus;
@@ -40,18 +38,17 @@ typedef enum {
 
 typedef union {
 	struct  {
-			uint32_t fq;											//frequency in 61.035Hz steps in reversed order
-			uint8_t bw;												//bandwidth
-			uint8_t sf;												//spreading factor
-			uint8_t cr;												//coding rate
-			uint8_t eh;												//explicit/implicit header
+			uint32_t fq;								//frequency in 61.035Hz steps in reversed order
+			uint8_t bw;									//bandwidth
+			uint8_t sf;									//spreading factor
+			uint8_t cr;									//coding rate
+			uint8_t eh;									//explicit/implicit header
 		};
 	uint8_t settingsArray[8];
 } RadioSettings;
 
-
 void RadioSetCommunicationParameters(RadioSettings *rs);
-void RadioTransmit(uint8_t *data, uint8_t length);
+void RadioTransmit();
 void RadioReceive(void);
 
 //parameter is an additional command - specific data that some commands may need, e.g. data transmission delay

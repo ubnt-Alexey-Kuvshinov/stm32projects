@@ -285,7 +285,6 @@ static inline void enableRTC(void)
 	LL_RCC_SetRTCClockSource(LL_RCC_RTC_CLKSOURCE_LSE);					//set LSE as RTC clock
 	LL_RCC_EnableRTC();													//at last, enable RTC
 
-
 	LL_RTC_DisableWriteProtection(RTC);
 //	LL_RTC_EnableShadowRegBypass(RTC);
 	LL_RTC_DisableShadowRegBypass(RTC);
@@ -331,24 +330,29 @@ static inline void enableRTC(void)
 
 static inline void enableLPTim(void)
 {
-/*
-	LL_RCC_SetLPTIMClockSource(LL_RCC_LPTIM1_CLKSOURCE_LSE);
-	LL_LPTIM_SetPrescaler(LPT_ptr, LL_LPTIM_PRESCALER_DIV32);			//~1ms clock
-	LL_LPTIM_EnableTimeout(LPT_ptr);									//enable wake-up
-	LL_LPTIM_EnableIT_CMPM(LPT_ptr);									//Enable Compare match interrupt
-	LL_LPTIM_Enable(LPT_ptr);											//Enable LPTIM
+	LL_RCC_SetLPTIMClockSource(LL_RCC_LPTIM1_CLKSOURCE_LSE);			//32.768kHz
+	//LL_LPTIM_SetPrescaler(LPTIM1, LL_LPTIM_PRESCALER_DIV32);			//~1ms clock 1/1024s
+	LL_LPTIM_SetPrescaler(LPTIM1, LL_LPTIM_PRESCALER_DIV8);
+	LL_LPTIM_EnableTimeout(LPTIM1);										//enable wake-up
+	LL_LPTIM_EnableIT_CMPM(LPTIM1);										//Enable Compare match interrupt
+//LL_LPTIM_EnableIT_ARRM(LPTIM1);
+
+	LL_LPTIM_Enable(LPTIM1);											//Enable LPTIM
+	LL_LPTIM_SetAutoReload(LPTIM1, 0xFFFF);								//Load the period value has to be strictly bigger than compare value
 
 	LL_EXTI_EnableIT_0_31(LL_EXTI_LINE_29);
 	LL_EXTI_EnableRisingTrig_0_31(LL_EXTI_LINE_29);						//connect LPTIM to EXTI line
 
 	NVIC_SetPriority(LPTIM1_IRQn, LPTIMER_PRIORITY);
+
+	LL_LPTIM_SetAutoReload(LPTIM1, 3);
+	LL_LPTIM_SetCompare(LPTIM1,2);
+	LL_LPTIM_StartCounter(LPTIM1, LL_LPTIM_OPERATING_MODE_CONTINUOUS);
+//while(!LL_LPTIM_IsActiveFlag_CMPOK(LPTIM1));
+//	LL_LPTIM_StartCounter(LPTIM1, LL_LPTIM_OPERATING_MODE_ONESHOT);
+
+
 	NVIC_EnableIRQ(LPTIM1_IRQn);
-
-	LL_LPTIM_SetAutoReload(LPT_ptr, 0xFFFF);							//Load the period value has to be strictly bigger than compare value
-//	LL_LPTIM_SetCompare(LPT_ptr, 100);									//Load the Timeout value
-//	LL_LPTIM_StartCounter(LPT_ptr, LL_LPTIM_OPERATING_MODE_CONTINUOUS);	//LL_LPTIM_OPERATING_MODE_ONESHOT
-
- */
 }
 
 
@@ -407,8 +411,7 @@ void init_Board_Peripherals(void)
 
     enableRTC();														//start RTC, clock source is actually set for the first time only, then proper RTC domain reset is needed to change it
 
-	enableLPTim();
-
+	enableLPTim();														//LSE is enabled by enableRTC();
 
 	configureAccelerometer();
 
@@ -419,6 +422,50 @@ void init_Board_Peripherals(void)
 }
 
 
+
+
+//Timeout range is from 1 to FFFF 1/1024s => ~ 1ms - 1min, event is the flag to be set when timer expires
+void setTimer(uint16_t timeout, uint16_t event)
+{
+	uint32_t i;
+//	uint16_t delta = 0;
+
+	NVIC_DisableIRQ(LPTIM1_IRQn);
+
+	//find a place in scheduling table to insert a new event into
+	for(i = 0; i < TIMER_SCHEDULE_SIZE; i++)
+		if(timerSchedule[i].event == event)
+			break;
+
+	if(TIMER_SCHEDULE_SIZE == i)											//no such event was previously scheduled, find first empty entry for it
+		for(i = 0; i < TIMER_SCHEDULE_SIZE; i++)
+			if(0 == timerSchedule[i].event)
+				break;		  												//empty entry should always exist so skipping check for the end here
+
+	//here we have a position to insert new event into
+	timerSchedule[i].event = event;
+
+	//now let's see about the timing
+	if (TimerCounter) {														//this means timer is running and counter register must be less than compare register
+
+		if (timeout >= TimerCounter) {
+			timerSchedule[i].timeout = timeout - TimerCounter;				//convert the timeout to timer terms
+		} else {															//the new event will be first to expire
+			timeout = TimerCounter - timeout;								//now use timeout as delta holder, - other scheduled events timeouts need to be increased by this much
+			TimerCounter -= timeout;										//schedule the new event with original timout value
+			timerSchedule[i].timeout = 0 - timeout;							//to become 0 after following expire time updating loop
+			for (i = 0; i < TIMER_SCHEDULE_SIZE; i++)
+				timerSchedule[i].timeout += timeout;
+		}
+	} else {																//scheduling table must be empty, the easy case
+		timerSchedule[i].timeout = 0;
+		TimerCounter = timeout;
+	}
+
+	NVIC_EnableIRQ(LPTIM1_IRQn);
+}
+
+/*
 //Timeout range is from 2 to 1024 * 60 * 60 - 1 (3 686 399) i.e. 2/1024s - 60 min (timeout of 1/1024 does not trigger)
 //event is the flag to be set when timer expires
 void setTimer(uint32_t timeout, uint32_t event)
@@ -502,6 +549,21 @@ void setTimer(uint32_t timeout, uint32_t event)
 	LL_RTC_ALMB_Enable(RTC);
 //	LL_RTC_EnableWriteProtection(RTC);
 }
+
+
+
+
+//starts one-shot timer to timeout milliseconds
+void startLpTimer(uint16_t timeout)
+{
+	NVIC_DisableIRQ(LPTIM1_IRQn);
+	LL_LPTIM_SetCompare(LPTIM1, timeout);								//Load the Timeout value
+	LL_LPTIM_StartCounter(LPTIM1, LL_LPTIM_OPERATING_MODE_ONESHOT);		//LL_LPTIM_OPERATING_MODE_CONTINUOUS
+	NVIC_EnableIRQ(LPTIM1_IRQn);
+}
+*/
+
+
 
 
 void startUart1Msg(uint8_t command)
