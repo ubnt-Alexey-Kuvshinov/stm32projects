@@ -157,11 +157,16 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 					if(RTS_FLASHING_CC_REQUEST == state) {
 						RadioSetCommunicationParameters(&radioControlTxSettings);
 						RadioBuffer[0] = RMT_COMMUNICATION_REQUEST;
-						//RadioBuffer[1] is already set with the delay value
-						RadioBuffer[2] = *DeviceID;
-						RadioBuffer[3] = *DeviceID >> 8;
-						RadioBuffer[4] = *DeviceID >> 16;
-						RadioBuffer[5] = *DeviceID >> 24;
+//						//RadioBuffer[1] is already set with the delay value
+//						RadioBuffer[2] = *DeviceID;
+//						RadioBuffer[3] = *DeviceID >> 8;
+//						RadioBuffer[4] = *DeviceID >> 16;
+//						RadioBuffer[5] = *DeviceID >> 24;
+						RadioBuffer[1] = *DeviceID;
+						RadioBuffer[2] = *DeviceID >> 8;
+						RadioBuffer[3] = *DeviceID >> 16;
+						RadioBuffer[4] = *DeviceID >> 24;
+
 						RadioTransmit(RadioBuffer, RMS_CC_REQUEST);
 						RadioBuffer[0] = 0;
 						setTimer(RADIO_LED_TIMEOUT, HWE_RADIO_TIMEOUT);
