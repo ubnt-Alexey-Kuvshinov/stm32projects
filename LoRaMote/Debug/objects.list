@@ -1,7 +1,0 @@
-"src/altimeter.o"
-"src/gps.o"
-"src/main.o"
-"src/radio.o"
-"src/stm32l152x_board.o"
-"src/stm32l1xx_it.o"
-"startup/startup_stm32.o"
