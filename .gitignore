@@ -13,9 +13,9 @@
 *.map
 *.elf
 *.cfg
-*.cproject
+#*.cproject
 *.custom.cfg
-*.project
+#*.project
 *.hml
 .settings/
 Debug/
