@@ -3,7 +3,7 @@
 
 
 struct SystemState DeviceState;
-uint32_t HardwareEvents = HWE_KEEP_CPU_RUNNING;
+uint32_t HardwareEvents;// = HWE_KEEP_CPU_RUNNING;
 uint16_t SoftwareEvents;
 uint32_t EventMask;
 
@@ -24,6 +24,8 @@ uint16_t TimerCounter;
 
 DeviceDataFields DeviceData;
 
+uint8_t radioTaskRetries;
+
 int32_t tmp;
 uint8_t uint8tmp;
 uint32_t uint32tmp;
@@ -40,23 +42,23 @@ void stateMachine(void)
 			boardGreenLedOn();
 			boardRedLedOn();
 			uart1SendText("Started by reset");
-			setTimer(timer_milliseconds(1000), HWE_LPTIMER);
+			setTimer(timer_milliseconds(1000), HWE_GENERIC_TIMEOUT);
 			DeviceState.substate = STATE_LED_CADENCE_1;
 //DeviceState.StateAndSubstate = STATE_WAITING_INPUT;
 			break;
 		case STATE_LED_CADENCE_1:
-			if(HardwareEvents & HWE_LPTIMER)
+			if(HardwareEvents & HWE_GENERIC_TIMEOUT)
 			{
-				CLEAR_EVENT(HWE_LPTIMER);
+				CLEAR_EVENT(HWE_GENERIC_TIMEOUT);
 				boardRedLedOff();
-				setTimer(timer_milliseconds(1000), HWE_LPTIMER);
+				setTimer(timer_milliseconds(1000), HWE_GENERIC_TIMEOUT);
 				DeviceState.substate = STATE_LED_CADENCE_2;
 			}
 			break;
 		case STATE_LED_CADENCE_2:
-			if(HardwareEvents & HWE_LPTIMER)
+			if(HardwareEvents & HWE_GENERIC_TIMEOUT)
 			{
-				CLEAR_EVENT(HWE_LPTIMER);
+				CLEAR_EVENT(HWE_GENERIC_TIMEOUT);
 				boardGreenLedOff();
 
 //				setTimer(timer_seconds(22), HWE_BUTTON_PRESS);						//schedule next wake up
@@ -73,22 +75,22 @@ void stateMachine(void)
 		case STATE_INIT:
 			boardRedLedOn();
 			uart1SendText("Woke up by alarm");
-			setTimer(timer_milliseconds(1000), HWE_LPTIMER);
+			setTimer(timer_milliseconds(1000), HWE_GENERIC_TIMEOUT);
 			DeviceState.substate = STATE_LED_CADENCE_1;
 			break;
 		case STATE_LED_CADENCE_1:
-			if(HardwareEvents & HWE_LPTIMER)
+			if(HardwareEvents & HWE_GENERIC_TIMEOUT)
 			{
-				CLEAR_EVENT(HWE_LPTIMER);
+				CLEAR_EVENT(HWE_GENERIC_TIMEOUT);
 				boardGreenLedOn();
-				setTimer(timer_milliseconds(1000), HWE_LPTIMER);
+				setTimer(timer_milliseconds(1000), HWE_GENERIC_TIMEOUT);
 				DeviceState.substate = STATE_LED_CADENCE_2;
 			}
 			break;
 		case STATE_LED_CADENCE_2:
-			if(HardwareEvents & HWE_LPTIMER)
+			if(HardwareEvents & HWE_GENERIC_TIMEOUT)
 			{
-				CLEAR_EVENT(HWE_LPTIMER);
+				CLEAR_EVENT(HWE_GENERIC_TIMEOUT);
 				boardRedLedOff();
 				boardGreenLedOff();
 
@@ -104,22 +106,22 @@ void stateMachine(void)
 		case STATE_INIT:
 			boardGreenLedOn();
 			uart1SendText("Woke up by ext event");
-			setTimer(timer_milliseconds(1000), HWE_LPTIMER);
+			setTimer(timer_milliseconds(1000), HWE_GENERIC_TIMEOUT);
 			DeviceState.substate = STATE_LED_CADENCE_1;
 			break;
 		case STATE_LED_CADENCE_1:
-			if(HardwareEvents & HWE_LPTIMER)
+			if(HardwareEvents & HWE_GENERIC_TIMEOUT)
 			{
-				CLEAR_EVENT(HWE_LPTIMER);
+				CLEAR_EVENT(HWE_GENERIC_TIMEOUT);
 				boardRedLedOn();
-				setTimer(timer_milliseconds(1000), HWE_LPTIMER);
+				setTimer(timer_milliseconds(1000), HWE_GENERIC_TIMEOUT);
 				DeviceState.substate = STATE_LED_CADENCE_2;
 			}
 			break;
 		case STATE_LED_CADENCE_2:
-			if(HardwareEvents & HWE_LPTIMER)
+			if(HardwareEvents & HWE_GENERIC_TIMEOUT)
 			{
-				CLEAR_EVENT(HWE_LPTIMER);
+				CLEAR_EVENT(HWE_GENERIC_TIMEOUT);
 				boardRedLedOff();
 				boardGreenLedOff();
 
@@ -134,7 +136,7 @@ void stateMachine(void)
 		{
 		case STATE_INIT:
 			uart1SendText("STATE_WAITING_INPUT");
-			setTimer(timer_seconds(10), HWE_INPUT_TIMEOUT);							//wait for xx seconds before entering low power mode
+//			setTimer(timer_seconds(10), HWE_INPUT_TIMEOUT);							//wait for xx seconds before entering low power mode
 //			HardwareEvents |= HWE_INPUT_WAITING;									//needed as UART RX does not wake this MCU from sleep
 
 			//Here we finished "flashy business" for waking by some event, now let's decide what to do next:
@@ -144,24 +146,23 @@ void stateMachine(void)
 
 //			RadioTask(RTC_START, GPS_FIX_TIMEOUT_WARM);	//can not be longer than 254 seconds
 
-/*			uint8tmp = GpsTask(GTC_GET_STATE, 0);
-			if((GTS_IDLE == uint8tmp) || (GTS_FAILED == uint8tmp)) {
-				GpsTask(GTC_RESET, 0);
-				GpsTask(GTC_START, 0);												//start mining for GPS data
-			}
 
-			uint8tmp = AltimeterTask(ATC_GET_STATE, 0);
-			if((ATS_IDLE == uint8tmp) || (ATS_FAILED == uint8tmp)) {
-				AltimeterTask(ATC_RESET, 0);
-				AltimeterTask(ATC_START, 0);
-			}
-
-			uint8tmp = RadioTask(RTC_GET_STATE, 0);
-			if((RTS_IDLE == uint8tmp) || (RTS_FAILED == uint8tmp) || (RTS_SUCCESS == uint8tmp)) {
-				RadioTask(RTC_RESET, 0);
-				RadioTask(RTC_START, timer_seconds(1));								//can not be longer than 254 seconds
-			}
+/*
+//			uint8tmp = AccelerometerTask(ATC_GET_STATE, 0);
+//			if((ATS_IDLE == uint8tmp) || (ATS_FAILED == uint8tmp)) {
+				AccelerometerTask(ATC_RESET, 0);
+				AccelerometerTask(ATC_START, 0);
+//			}
 */
+
+			GpsTask(GTC_RESET, 0);
+			GpsTask(GTC_START, 0);													//start mining for GPS data
+
+			AccelerometerTask(ATC_RESET, 0);
+			AccelerometerTask(ATC_START, AR_OUT_TEMP_L);							//start temperature reading process
+			radioTaskRetries = 1;													//make up to this many attempts to transmit the results over the radio
+			setTimer(timer_milliseconds(300), HWE_GENERIC_TIMEOUT);					//set the result check time
+
 			DeviceState.substate = STATE_BUSINESS;
 			break;
 		default:
@@ -230,6 +231,13 @@ void stateMachine(void)
 					LL_RTC_DisableInitMode(RTC);
 					LL_RTC_EnableWriteProtection(RTC);
 					break;
+				case RC_GET_TEMP:
+					DeviceState.StateAndSubstate = STATE_READING_ACCELEROMETER_TEMPERATURE;
+					break;
+				case RC_GET_GPS:
+					//sendLpUartMessage("$PMTK161,1*29\r\n", 15);
+					sendLpUartMessage("$PMTK161,0*28\r\n", 15);
+					break;
 				case RC_GET_PICTURE:
 					CameraTask(CTC_RESET, 0);
 					CameraTask(CTC_START, Uart1Command[2]);							//start picture taking process
@@ -247,26 +255,66 @@ void stateMachine(void)
 				sendUart1Message();
 			}
 
-			if(HardwareEvents & HWE_INPUT_TIMEOUT)
-			{
+			if(HardwareEvents & HWE_GENERIC_TIMEOUT) {
 				boardRedLedToggle();
-				CLEAR_EVENT(HWE_INPUT_TIMEOUT);
-				//DeviceState.StateAndSubstate = STATE_WAITING_INPUT;
-				setTimer(timer_seconds(10), HWE_INPUT_TIMEOUT);						//restart inactivity timer
+				CLEAR_EVENT(HWE_GENERIC_TIMEOUT);
 
-//				setTimer(20, HWE_INPUT_TIMEOUT);						//restart inactivity timer
-				break;
+				//Let's see what's going on on the board:
+				//if any task is in progress - wait for it to finish
+				//if all tasks are either idle or finished successfully - start the radio task to report results
+				//when all tasks become idle - start inactivity timer
+				//when all tasks are idle and inactivity timer expires - go to idle state
 
+				//cancel or retry failed tasks
+				if(ATS_FAILED == AccelerometerTask(ATC_GET_STATE, 0))
+					AccelerometerTask(ATC_RESET, 0);
 
-				if((PWR_STANDBY == RadioTask(RTC_GET_PWR_NEED, 0)) &&
-					(PWR_STANDBY == GpsTask(GTC_GET_PWR_NEED, 0)) &&
-					(PWR_STANDBY == AltimeterTask(ATC_GET_PWR_NEED, 0))) {
+				if(GTS_FAILED == GpsTask(GTC_GET_STATE, 0))
+					GpsTask(GTC_RESET, 0);
 
-//					CLEAR_EVENT(HWE_INPUT_WAITING);
-					DeviceState.StateAndSubstate = STATE_IDLE;
+				if((RTS_FAILED == RadioTask(RTC_GET_STATE, 0))|| (RTS_SUCCESS == RadioTask(RTC_GET_STATE, 0)) )
+					RadioTask(RTC_RESET, 0);
+
+				//check if all activities have finished
+				if((RTS_IDLE == RadioTask(RTC_GET_STATE, 0)) &&
+					(GTS_IDLE == GpsTask(GTC_GET_STATE, 0)) &&
+					(ATS_IDLE == AccelerometerTask(ATC_GET_STATE, 0))) {
+
+					setTimer(timer_seconds(10), HWE_INPUT_TIMEOUT);					//start inactivity timer
+				} else {
+
+				//here we have some uncompleted / unreported activities, let's see if it can be reported over the radio,
+				// that is when some task(s) completed successfully, while others are not in progress i.e. all tasks finished
+					if( RTS_IDLE == RadioTask(RTC_GET_STATE, 0) ) {
+						if(	(ATS_SUCCESS == AccelerometerTask(ATC_GET_STATE, 0) &&
+							( GTS_SUCCESS == GpsTask(GTC_GET_STATE, 0) || GTS_IDLE == GpsTask(GTC_GET_STATE, 0))) ||
+							(GTS_SUCCESS == GpsTask(GTC_GET_STATE, 0) &&
+							( ATS_SUCCESS == AccelerometerTask(ATC_GET_STATE, 0) || ATS_IDLE == AccelerometerTask(ATC_GET_STATE, 0))) ) {
+								if(radioTaskRetries) {
+									RadioTask(RTC_START, timer_seconds(1));			//can not be longer than 254 seconds
+									radioTaskRetries--;
+								} else {
+									AccelerometerTask(ATC_RESET, 0);
+									GpsTask(GTC_RESET, 0);
+									RadioTask(RTC_RESET, 0);
+								}
+							}
+					}
+					setTimer(timer_milliseconds(300), HWE_GENERIC_TIMEOUT);			//check again after this long
 				}
-				else
-					setTimer(timer_seconds(10), HWE_INPUT_TIMEOUT);					//restart inactivity timer
+			}
+
+
+			if(HardwareEvents & HWE_INPUT_TIMEOUT) {
+				CLEAR_EVENT(HWE_INPUT_TIMEOUT);
+
+				if((RTS_IDLE == RadioTask(RTC_GET_STATE, 0)) &&
+					(GTS_IDLE == GpsTask(GTC_GET_STATE, 0)) &&
+					(ATS_IDLE == AccelerometerTask(ATC_GET_STATE, 0))) {
+
+					DeviceState.StateAndSubstate = STATE_IDLE;						//BYE, GOING TO STANDBY
+				} else
+					setTimer(timer_milliseconds(300), HWE_GENERIC_TIMEOUT);			//check tasks again after this long
 			}
 
 			break;	//default substate
@@ -359,6 +407,38 @@ void stateMachine(void)
 				}
 			}	//switch(DeviceState.substate)
 			break;	//STATE_TRANSMITTING_PICTURE
+
+		case STATE_READING_ACCELEROMETER_TEMPERATURE:
+			switch(DeviceState.substate) {
+			case STATE_INIT:
+				AccelerometerTask(ATC_RESET, 0);
+				AccelerometerTask(ATC_START, AR_OUT_TEMP_L);						//start temperature reading process
+				setTimer(timer_milliseconds(300), HWE_INPUT_TIMEOUT);				//set task timeout
+				DeviceState.substate = STATE_BUSINESS;
+				break;
+			default:
+				if(HardwareEvents & HWE_INPUT_TIMEOUT)
+				{
+					CLEAR_EVENT(HWE_INPUT_TIMEOUT);
+
+					switch(AccelerometerTask(ATC_GET_STATE, 0)) {
+					case ATS_SUCCESS:
+						uart1SendText("temperature: ");
+						startUart1Msg(RC_GET_TEMP);
+						addToUart1Msg(accelerometerData.buffer[1]);
+						addToUart1Msg(accelerometerData.buffer[0]);
+						sendUart1Message();
+						break;
+					default:
+						uart1SendText("failed reading accelerometer");
+						break;
+					}
+
+					DeviceState.StateAndSubstate = STATE_WAITING_INPUT;
+					break;
+				}
+			}
+			break;	//STATE_READING_TEMPERATURE
 
 		case STATE_IDLE:
 			LL_RTC_ALMB_Disable(RTC);
@@ -470,7 +550,7 @@ int main(void)
 				case HWE_ALARM_A:
 					boardRedLedToggle();
 					break;
-				case HWE_LPTIMER:
+				case HWE_GENERIC_TIMEOUT:
 //					runStateMachine();												//to make sure it did not arrive after runStateMachine() above
 					break;
 				case HWE_INPUT_TIMEOUT:
@@ -481,6 +561,10 @@ int main(void)
 				case HWE_DIO3:
 					 RadioTask(RTC_EVENT, EventMask);
 					break;
+				case HWE_ACCEL_TIMEOUT:
+					AccelerometerTask(ATC_EVENT, EventMask);
+					break;
+
 				default:
 					break;
 				}

@@ -613,11 +613,7 @@ typedef enum
 	RC_TMP_GREEN_TOGGLE,											//toggle green LED, "s"
 	RC_TMP_RED_TOGGLE,												//toggle red LED, "v"
 
-	//	RC_SET_MODE,					//sets one of the RadioModes values specified in the byte following the command
-//	RC_SET_CHANNEL,					//sets Tx/Rx frequency, frequency value to be in 3 bytes following the command
-//	RD_SET_BANDWIDTH,				//sets one of the RadioBandwidthes already expressed in register values, three following bytes
-//	RC_SET_CODING_RATE,				//sets one of RadioCodingRates, specified in the byte following the command
-//	RC_SET_HEADER_TYPE,					//sets Tx/Rx frequency
+	RC_GET_TEMP					= 0xF7,								//get temperature reading
 	RC_GET_GPS				= 0xF8,								//temporary command to check a data string from gps
 	RC_GET_PICTURE				= 0xF9,								//command to camera to take a picture
 	RC_PICTURE_DATA				= 0xFA,								//picture data message or get next data command, if the following byte is 0, or resend data if 1
@@ -643,7 +639,7 @@ typedef enum
 	//Radio message may have dynamic content depending on situation, e.g data availability. To allow this, each data field would have type (and length ?) headers
 	RMDT_DEVICE_ID,													//identification number of target/source device
 	RMDT_GPS,														//gps coordinates
-	RMDT_ALTIMETER,													//altimeter information: temperature
+	RMDT_ACCELEROMETER,													//altimeter information: temperature
 	RMDT_TIME,														//internal time of a device
 	RMDT_BATTERY,													//battery level
 	RMDT_PICTURE,													//image data

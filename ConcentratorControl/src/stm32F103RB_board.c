@@ -266,6 +266,8 @@ static inline void configureRadio(void)
 
 void init_Board_Peripherals(void)
 {
+//while(1);
+
 	//enable peripherals
 	SET_BIT(RCC->APB2ENR, RCC_APB2ENR_IOPAEN);							//enable port A
 	SET_BIT(RCC->APB2ENR, RCC_APB2ENR_IOPBEN);							//enable port B

@@ -362,6 +362,7 @@ uint32_t CameraTask(CameraTaskCommands command, uint32_t parameter)
 				state = CTS_WAITING_PKTSIZE_ACK;
 				break;
 			case CTS_RESET:
+				sendUart2Message(commands[CC_RESET], COMMAND_SIZE);					//send reset command
 				state = CTS_FAILED;
 				FLASH->PECR &= ~(FLASH_PECR_PROG | FLASH_PECR_FPRG);				//lock FLASH back
 				break;

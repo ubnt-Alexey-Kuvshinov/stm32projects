@@ -65,6 +65,20 @@ void SysTick_Handler(void)
 }
 
 
+void EXTI0_1_IRQHandler(void)
+{
+	if(EXTI->PR & EXTI_PR_PIF0) {													//movement interrupt from accelerometer
+		EXTI->PR |= EXTI_PR_PIF0;
+	}
+}
+
+void EXTI2_3_IRQHandler(void)
+{
+	if(EXTI->PR & EXTI_PR_PIF0) {													//movement interrupt from accelerometer
+		EXTI->PR |= EXTI_PR_PIF0;
+	}
+}
+
 void EXTI4_15_IRQHandler(void)
 {
 /*	if(EXTI->PR & EXTI_PR_PIF13)					//Button
@@ -77,10 +91,10 @@ void EXTI4_15_IRQHandler(void)
 //		boardGreenLedToggle();
 	}
 	else */
-	if(EXTI->PR & EXTI_PR_PIF12) {												//DIO0 from the radio
+	if(EXTI->PR & EXTI_PR_PIF12) {													//DIO0 from the radio
 		EXTI->PR |= EXTI_PR_PIF12;
 		HardwareEvents |= HWE_DIO0;
-	} else if(EXTI->PR & EXTI_PR_PIF15) {										//DIO3 from the radio
+	} else if(EXTI->PR & EXTI_PR_PIF15) {											//DIO3 from the radio
 		EXTI->PR |= EXTI_PR_PIF15;
 		HardwareEvents |= HWE_DIO3;
 	} else

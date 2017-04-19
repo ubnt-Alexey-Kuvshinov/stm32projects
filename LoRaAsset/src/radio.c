@@ -214,15 +214,15 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 					GpsTask(GTC_RESET, 0);
 				}
 
-				if(ATS_SUCCESS == AltimeterTask(ATC_GET_STATE, 0)) {	//insert altimeter data if available
-//					RadioBuffer[uint8tmp++] = RMDT_ALTIMETER;
-//					RadioBuffer[uint8tmp++] = AltimeterData.temperature_whole;
-//					RadioBuffer[uint8tmp++] = AltimeterData.temperature_fractional;
-					RadioBuffer[0] = RMDT_ALTIMETER;
-					RadioBuffer[1] = AltimeterData.temperature_whole;
-					RadioBuffer[2] = AltimeterData.temperature_fractional;
+				if(ATS_SUCCESS == AccelerometerTask(ATC_GET_STATE, 0)) {	//insert accelerometer data if available
+//					RadioBuffer[uint8tmp++] = RMDT_ACCELEROMETER;
+//					RadioBuffer[uint8tmp++] = accelerometerData.temperature_whole;
+//					RadioBuffer[uint8tmp++] = accelerometerData.temperature_fractional;
+					RadioBuffer[0] = RMDT_ACCELEROMETER;
+					RadioBuffer[1] = accelerometerData.temperature_whole;
+					RadioBuffer[2] = accelerometerData.temperature_fractional;
 					RadioAddToMessage(RadioBuffer, 3);
-					AltimeterTask(ATC_RESET, 0);
+					AccelerometerTask(ATC_RESET, 0);
 				}
 
 				if(DeviceData.pictureSize) {							//insert picture data if available
@@ -245,6 +245,7 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 			case RTS_TRANSMITTING_CC_REQUEST:							//transmission finished
 			case RTS_TRANSMITTING_DATA:
 				boardRedLedOff();
+				CLEAR_EVENT(HWE_RADIO_TRANSMITTING);
 				if(RTS_TRANSMITTING_CC_REQUEST == state) {
 					uart1SendText("radio transmitted CC request");
 					RadioReceive();
@@ -252,9 +253,6 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 					state = RTS_LISTENING_CC_REPLY;
 				} else {
 					uart1SendText("radio transmitted data");
-//					CLEAR_EVENT(HWE_RADIO_TRANSMITTING);
-//					CLEAR_EVENT(HWE_RADIO_RECEIVING);
-//					state = RTS_IDLE;
 					RadioReceive();
 					setTimer(RADIO_RX_TIMEOUT, HWE_RADIO_TIMEOUT);
 					state = RTS_RECEIVING_DATA_CONFIRMATION;
@@ -263,6 +261,7 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 			case RTS_RECEIVING_CC_REPLY:								//CC reply received
 			case RTS_RECEIVING_DATA_CONFIRMATION:						//TODO: implement
 				boardGreenLedOff();
+				CLEAR_EVENT(HWE_RADIO_RECEIVING);
 
 				RadioBuffer[0] = RC_SET_IRQ_FLAGS;						//get and reset all last packet IRQ flags, resetting is important or new interrupt will not trigger unless radio is put to receive mode again(probably after transition to other mode in addition)
 				RadioBuffer[1] = 0xFF;
@@ -295,10 +294,10 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 						} else if(RMT_COMMUNICATION_DATA_CONFIRMATION == RadioBuffer[RMF_MSG_TYPE]) {	//radio task is in RTS_RECEIVING_DATA_CONFIRMATION state
 							int i;
 
-							uint8tmp -= RMS_MINIMUM;
-							spiAccessRegisters2(RC_GET_FIFO, RadioBuffer, uint8tmp);
+							//uint8tmp -= RMS_MINIMUM;
+							spiAccessRegisters2(RC_GET_FIFO, RadioBuffer, uint8tmp - RMS_MINIMUM);	//get data confirmation message itself
 
-							for (i = 0; i < uint8tmp; )
+							for (i = 0; i < uint8tmp - RMS_MINIMUM; )
 								switch(RadioBuffer[i]) {					//TODO: implement size checks
 								case RMDT_PICTURE:
 									DeviceData.pictureConfirmation = RadioBuffer[i + 1];
@@ -309,12 +308,13 @@ uint32_t RadioTask(RadioTaskCommands command, uint32_t parameter)
 								}
 
 							state = RTS_SUCCESS;
+							uart1SendText("radio received Data message:");
 							goto gotit;
 						}
 					}
 				}
 
-				uart1SendText("CC reply is not recognized:");
+				uart1SendText("CC or data reply is not recognized:");
 				RadioTaskGoToFailed(&state);							//TODO: may try receiving again
 gotit:
 				startUart1Msg(RC_RX_MESSAGE);							//display received stuff for debugging

@@ -275,7 +275,6 @@ void stateMachine(void)
 		break;	//case STATE_WAITING_INPUT
 
 
-
 	case STATE_RADIO_TRANSMITTING:
 		switch(DeviceState.substate)
 		{

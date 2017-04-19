@@ -813,11 +813,11 @@ LOAD c:/ac6/systemworkbench/plugins/fr.ac6.mcu.externaltools.arm-none.win32_1.7.
                 0x0000028e       0x1e c:/ac6/systemworkbench/plugins/fr.ac6.mcu.externaltools.arm-none.win32_1.7.0.201602121829/tools/compiler/bin/../lib/gcc/arm-none-eabi/5.2.1/armv6-m/crtn.o
 OUTPUT(ConcentratorData.elf elf32-littlearm)
 
-.debug_info     0x00000000     0x2cc3
- .debug_info    0x00000000      0xceb src/main.o
- .debug_info    0x00000ceb     0x1929 src/stm32l05x_board.o
- .debug_info    0x00002614      0x63c src/stm32l0xx_it.o
- .debug_info    0x00002c50       0x73 startup/startup_stm32l053xx.o
+.debug_info     0x00000000     0x2cf9
+ .debug_info    0x00000000      0xd09 src/main.o
+ .debug_info    0x00000d09     0x1941 src/stm32l05x_board.o
+ .debug_info    0x0000264a      0x63c src/stm32l0xx_it.o
+ .debug_info    0x00002c86       0x73 startup/startup_stm32l053xx.o
 
 .debug_abbrev   0x00000000      0x74d
  .debug_abbrev  0x00000000      0x26c src/main.o
@@ -890,12 +890,12 @@ OUTPUT(ConcentratorData.elf elf32-littlearm)
  .debug_line    0x000016fb      0x6f5 src/stm32l0xx_it.o
  .debug_line    0x00001df0       0x83 startup/startup_stm32l053xx.o
 
-.debug_str      0x00000000    0x46fea
- .debug_str     0x00000000    0x43e39 src/main.o
-                              0x44107 (size before relaxing)
- .debug_str     0x00043e39     0x30c7 src/stm32l05x_board.o
-                              0x46f22 (size before relaxing)
- .debug_str     0x00046f00       0xea src/stm32l0xx_it.o
+.debug_str      0x00000000    0x47048
+ .debug_str     0x00000000    0x43e97 src/main.o
+                              0x44165 (size before relaxing)
+ .debug_str     0x00043e97     0x30c7 src/stm32l05x_board.o
+                              0x46f5c (size before relaxing)
+ .debug_str     0x00046f5e       0xea src/stm32l0xx_it.o
                               0x439e0 (size before relaxing)
 
 .comment        0x00000000       0x6e

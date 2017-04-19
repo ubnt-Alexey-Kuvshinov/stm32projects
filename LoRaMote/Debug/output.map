@@ -1309,22 +1309,22 @@ LOAD c:/ac6/systemworkbench/plugins/fr.ac6.mcu.externaltools.arm-none.win32_1.7.
  *(.bss)
  .bss           0x20000018       0x1c c:/ac6/systemworkbench/plugins/fr.ac6.mcu.externaltools.arm-none.win32_1.7.0.201602121829/tools/compiler/bin/../lib/gcc/arm-none-eabi/5.2.1/armv7-m/crtbegin.o
  *(.bss*)
- .bss.state.8845
+ .bss.state.8850
                 0x20000034        0x1 src/altimeter.o
  *fill*         0x20000035        0x3 
- .bss.next.8874
+ .bss.next.8879
                 0x20000038        0x4 src/gps.o
- .bss.state.8941
+ .bss.state.8946
                 0x2000003c        0x1 src/gps.o
- .bss.fixAttempts.8942
+ .bss.fixAttempts.8947
                 0x2000003d        0x1 src/gps.o
- .bss.blinkCycles.8943
+ .bss.blinkCycles.8948
                 0x2000003e        0x1 src/gps.o
  *fill*         0x2000003f        0x1 
  .bss.radioDataTxSettings
                 0x20000040        0x8 src/radio.o
                 0x20000040                radioDataTxSettings
- .bss.state.8851
+ .bss.state.8856
                 0x20000048        0x1 src/radio.o
  *(COMMON)
  *fill*         0x20000049        0x3 
@@ -1408,14 +1408,14 @@ LOAD c:/ac6/systemworkbench/plugins/fr.ac6.mcu.externaltools.arm-none.win32_1.7.
                 0x00000295       0x1d c:/ac6/systemworkbench/plugins/fr.ac6.mcu.externaltools.arm-none.win32_1.7.0.201602121829/tools/compiler/bin/../lib/gcc/arm-none-eabi/5.2.1/armv7-m/crtn.o
 OUTPUT(LoRaMote.elf elf32-littlearm)
 
-.debug_info     0x00000000     0x5c4e
+.debug_info     0x00000000     0x5c90
  .debug_info    0x00000000      0x2c6 src/altimeter.o
  .debug_info    0x000002c6      0x765 src/gps.o
- .debug_info    0x00000a2b     0x1749 src/main.o
- .debug_info    0x00002174      0xbe3 src/radio.o
- .debug_info    0x00002d57     0x2495 src/stm32l152x_board.o
- .debug_info    0x000051ec      0x9fd src/stm32l1xx_it.o
- .debug_info    0x00005be9       0x65 startup/startup_stm32.o
+ .debug_info    0x00000a2b     0x175b src/main.o
+ .debug_info    0x00002186      0xc01 src/radio.o
+ .debug_info    0x00002d87     0x24a7 src/stm32l152x_board.o
+ .debug_info    0x0000522e      0x9fd src/stm32l1xx_it.o
+ .debug_info    0x00005c2b       0x65 startup/startup_stm32.o
 
 .debug_abbrev   0x00000000      0xece
  .debug_abbrev  0x00000000      0x145 src/altimeter.o
@@ -1517,18 +1517,18 @@ OUTPUT(LoRaMote.elf elf32-littlearm)
  .debug_line    0x000036c2      0x8a1 src/stm32l1xx_it.o
  .debug_line    0x00003f63       0x76 startup/startup_stm32.o
 
-.debug_str      0x00000000    0x5949c
+.debug_str      0x00000000    0x594fb
  .debug_str     0x00000000    0x56da1 src/altimeter.o
                               0x56fb2 (size before relaxing)
  .debug_str     0x00056da1      0x5c6 src/gps.o
                               0x57419 (size before relaxing)
- .debug_str     0x00057367      0xb44 src/main.o
-                              0x57c8b (size before relaxing)
- .debug_str     0x00057eab      0x467 src/radio.o
-                              0x57d12 (size before relaxing)
- .debug_str     0x00058312     0x1090 src/stm32l152x_board.o
-                              0x5891c (size before relaxing)
- .debug_str     0x000593a2       0xfa src/stm32l1xx_it.o
+ .debug_str     0x00057367      0xb72 src/main.o
+                              0x57cb9 (size before relaxing)
+ .debug_str     0x00057ed9      0x498 src/radio.o
+                              0x57d71 (size before relaxing)
+ .debug_str     0x00058371     0x1090 src/stm32l152x_board.o
+                              0x5894a (size before relaxing)
+ .debug_str     0x00059401       0xfa src/stm32l1xx_it.o
                               0x573cc (size before relaxing)
 
 .comment        0x00000000       0x6e

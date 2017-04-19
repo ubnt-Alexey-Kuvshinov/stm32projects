@@ -89,7 +89,8 @@ static const struct GPIO_Line inputs[] = {{GSINT1_PORT, GSINT1_BIT}, {GSINT2_POR
 
 static const struct GPIO_Line outputs[] = {{AUX_WHITE_LED_PORT, AUX_WHITE_LED_BIT}, {AUX_RED_LED_PORT, AUX_RED_LED_BIT}, {AUX_GREEN_LED_PORT, AUX_GREEN_LED_BIT},
 		{RADIO_RESET_PORT, RADIO_RESET_BIT}, {RADIO_NSS_PORT, RADIO_NSS_BIT}, {RADIO_MOSI_PORT, RADIO_MOSI_BIT}, {RADIO_SCK_PORT, RADIO_SCK_BIT},
-		{RF_PA_HIGH_PWR_PORT, RF_PA_HIGH_PWR_BIT}, {RF_CPS_PORT, RF_CPS_BIT}, {RF_CSD_PORT, RF_CSD_BIT}};
+		{RF_PA_HIGH_PWR_PORT, RF_PA_HIGH_PWR_BIT}, {RF_CPS_PORT, RF_CPS_BIT}, {RF_CSD_PORT, RF_CSD_BIT},
+		{I2C1_SCL_PORT, I2C1_SCL_BIT}};
 
 
 void SystemInit (void)
@@ -191,28 +192,50 @@ static inline void configureAccelerometer(void)
 
 	LL_I2C_Disable(I2C1);												//Disable I2C1 prior to modifying configuration registers
 
-			/* I2C SPEEDCLOCK define to max value: Fast Mode @400kHz */
-	//		#define I2C_SPEEDCLOCK           400000
-	//		#define I2C_DUTYCYCLE            LL_I2C_DUTYCYCLE_2
+	//Timing register value is computed with the AN4235 xls file, fast Mode @400kHz with I2CCLK = 16MHz, rise time = 100ns, fall time = 10ns
+	I2C1->TIMINGR = (uint32_t)0x00301019;	//0x000090f0;	//0x00B1112E;	//0x00B1112E;	0x00300619
 
-//		  LL_I2C_ConfigSpeed(I2C1, 16000000, 400000, LL_I2C_DUTYCYCLE_2);	//TODO: configure
+//	LL_I2C_Enable(I2C1);
+	accelerometerData.buffer[0] = AR_TEMP_CFG_REG;
+	accelerometerData.buffer[1] = 0b11000000;							//enable temperature sensor
+	accelerometerData.buffer[2] = 0b00100111;							//CTRL_REG1: HR / Normal / Low-power mode (10 Hz), Z, Y, X axis enabled
+	AccelerometerWriteBytes(accelerometerData.buffer, 3);
 
-		  LL_I2C_Enable(I2C1);
+	accelerometerData.buffer[0] = AR_CTRL_REG4;
+	accelerometerData.buffer[1] = 0b10000000;							//set Block data update bit for temperature sensor
+	AccelerometerWriteBytes(accelerometerData.buffer, 2);
 
-//	SYSCFG->EXTICR[1] |= SYSCFG_EXTICR1_EXTI0_PA;						//Select Port A for EXTI0 line input source
+	accelerometerData.buffer[0] = AR_CTRL_REG3;
+//	accelerometerData.buffer[1] = 0b01100000;							//IA1 interrupt on INT1 pin, IA2 interrupt on INT1 pin
+	accelerometerData.buffer[1] = 0b01000000;							//IA1 interrupt on INT1 pin
+	AccelerometerWriteBytes(accelerometerData.buffer, 2);
+
+//seems not needed
+//	accelerometerData.buffer[0] = AR_CTRL_REG5;
+//	//accelerometerData.buffer[1] = 0b00001110;							//Reboot memory content, Latch interrupt request on INT1_SRC (31h), with INT1_SRC (31h) register cleared by reading INT1_SRC (31h) itself
+//	accelerometerData.buffer[1] = 0b00000000;
+//	AccelerometerWriteBytes(accelerometerData.buffer, 2);
+
+	accelerometerData.buffer[0] = AR_INT1_CFG;
+//	accelerometerData.buffer[1] = 0b01111111;							//6-direction movement recognition
+	accelerometerData.buffer[1] = 0b10010101;							//free fall movement recognition
+	AccelerometerWriteBytes(accelerometerData.buffer, 2);
+
+	accelerometerData.buffer[0] = AR_INT1_THS;
+//	accelerometerData.buffer[1] = 0b00111000;							//interrupt threshold
+	accelerometerData.buffer[1] = 0b00100000;							//interrupt threshold
+	accelerometerData.buffer[2] = 0b00000001;							//interrupt duration
+	AccelerometerWriteBytes(accelerometerData.buffer, 3);
+
 	LL_SYSCFG_SetEXTISource(LL_SYSCFG_EXTI_PORTA, LL_SYSCFG_EXTI_LINE0);//Select Port A for EXTI0 line input source
-//	EXTI->RTSR |= EXTI_RTSR_RT0;										//Rising trigger event configuration bit of line 0
 	LL_EXTI_EnableRisingTrig_0_31(EXTI_IMR_IM0);						//Rising trigger event configuration bit of line 0
-//	EXTI->IMR |= EXTI_IMR_IM0;											//enable EXTI0 line interrupt
 	LL_EXTI_EnableIT_0_31(EXTI_IMR_IM0);								//enable EXTI0 line interrupt
-//	EXTI->FTSR |= EXTI_FTSR_FT0;										//Falling trigger event configuration bit of line 0
 	NVIC_SetPriority(EXTI0_1_IRQn, GPIO_PRIORITY);						//enable button interrupts in interrupt controller
 	NVIC_EnableIRQ(EXTI0_1_IRQn);
 
 	LL_SYSCFG_SetEXTISource(LL_SYSCFG_EXTI_PORTB, LL_SYSCFG_EXTI_LINE2);//Select Port B for EXTI2 line input source
 	LL_EXTI_EnableRisingTrig_0_31(EXTI_IMR_IM2);						//Rising trigger event configuration bit of line 2
 	LL_EXTI_EnableIT_0_31(EXTI_IMR_IM2);								//enable EXTI2 line interrupt
-
 	NVIC_SetPriority(EXTI2_3_IRQn, GPIO_PRIORITY);						//enable button interrupts in interrupt controller
 	NVIC_EnableIRQ(EXTI2_3_IRQn);
 }
@@ -258,6 +281,7 @@ static void inline configureLpUart(void)
 	NVIC_SetPriority(LPUART1_IRQn, USART_2_PRIORITY);					//enable LPUART interrupt in interrupt controller
 	NVIC_EnableIRQ(LPUART1_IRQn);
 }
+
 
 static void inline configureSpi1(void)
 {
@@ -348,9 +372,6 @@ static inline void enableLPTim(void)
 	LL_LPTIM_SetAutoReload(LPTIM1, 3);
 	LL_LPTIM_SetCompare(LPTIM1,2);
 	LL_LPTIM_StartCounter(LPTIM1, LL_LPTIM_OPERATING_MODE_CONTINUOUS);
-//while(!LL_LPTIM_IsActiveFlag_CMPOK(LPTIM1));
-//	LL_LPTIM_StartCounter(LPTIM1, LL_LPTIM_OPERATING_MODE_ONESHOT);
-
 
 	NVIC_EnableIRQ(LPTIM1_IRQn);
 }
@@ -371,6 +392,7 @@ static inline void configureRadio(void)
 	setPortBit(RADIO_RESET_PORT, RADIO_RESET_BIT);						//turn on the radio chip TODO: remove
 }
 
+
 void init_Board_Peripherals(void)
 {
 	//enable peripherals
@@ -390,7 +412,7 @@ void init_Board_Peripherals(void)
 	LL_DBGMCU_EnableDBGStopMode();
 	LL_DBGMCU_EnableDBGStandbyMode();
 	LL_DBGMCU_ABP1_GRP1_FreezePeriph(LL_DBGMCU_ABP1_GRP1_RTC_STOP | LL_DBGMCU_ABP1_GRP1_LPTIM1_STOP | LL_DBGMCU_ABP1_GRP1_I2C1_STOP);
-/**/
+
 	//configure inputs
 	for(tmp = 0; tmp < sizeof(inputs) / sizeof(struct GPIO_Line); tmp++)
 		configurePortPinAsInput(inputs[tmp].port, inputs[tmp].bit);
@@ -415,13 +437,10 @@ void init_Board_Peripherals(void)
 
 	configureAccelerometer();
 
-//	LL_PWR_EnableWakeUpPin(LL_PWR_WAKEUP_PIN1);				//GSINT1_PORT
+	configureRadio();													//connect radio interrupts and enable the radio
 
-	//radio-related configuration
-	configureRadio();
+	sendLpUartMessage("$PMTK161,0*28\r\n", 15);							//put GPS into low-power mode
 }
-
-
 
 
 //Timeout range is from 1 to FFFF 1/1024s => ~ 1ms - 1min, event is the flag to be set when timer expires
@@ -462,97 +481,12 @@ void setTimer(uint16_t timeout, uint16_t event)
 		TimerCounter = timeout;
 	}
 
+	HardwareEvents &= ~event;
+
 	NVIC_EnableIRQ(LPTIM1_IRQn);
 }
 
 /*
-//Timeout range is from 2 to 1024 * 60 * 60 - 1 (3 686 399) i.e. 2/1024s - 60 min (timeout of 1/1024 does not trigger)
-//event is the flag to be set when timer expires
-void setTimer(uint32_t timeout, uint32_t event)
-{
-	volatile uint32_t minute;
-	volatile uint32_t second;
-	volatile uint32_t subsecond;
-	TimerQueue newEntry;
-
-//	LL_RTC_DisableWriteProtection(RTC);
-	LL_RTC_ALMB_Disable(RTC);
-//	RTC->ISR = ~(RTC_ISR_ALRBF | RTC_ISR_INIT) | (RTC->ISR & RTC_ISR_INIT);	//Clear the AlarmB interrupt pending bit
-
-	//verify timeout range
-	if(timeout > 60 * 60 * 1024 - 1)
-		timeout = 60 * 60 * 1024 - 1;
-	if(timeout < 2)
-		timeout = 2;
-
-	//calculate RTC values corresponding to current time + timeout
-	//	while(!LL_RTC_IsActiveFlag_RS(RTC));							//shadow regs updated
-	minute = __LL_RTC_CONVERT_BCD2BIN(LL_RTC_TIME_GetMinute(RTC)) + timeout / (1024 * 60);
-	second = __LL_RTC_CONVERT_BCD2BIN(LL_RTC_TIME_GetSecond(RTC)) + (timeout % (1024 * 60)) / 1024;
-	subsecond = LL_RTC_TIME_GetSubSecond(RTC);
-	(void)LL_RTC_ReadReg(RTC, DR);										//unfreeze time/date registers
-
-	timeout %= 1024;
-	if(timeout > subsecond) {
-		subsecond = 1024 - timeout + subsecond;
-		second++;
-	} else
-		subsecond -= timeout;
-
-	subsecond = 1024 - subsecond;										//this tricky trick is needed for correct time comparison of TimerQueue.time values, should be reverted back when written to RTC alarm subseconds register
-
-	if(second > 59) {
-		second -= 60;
-		minute++;
-	}
-
-	if(minute > 59)
-		minute -= 60;
-
-	//add the event to timer schedule
-	newEntry.event = event;
-	newEntry.minutes = minute;
-	newEntry.seconds = second;
-	newEntry.subseconds = subsecond;
-
-	for(uint8tmp = 0; uint8tmp < TIMER_SCHEDULE_SIZE; uint8tmp++)		//if the same event is already scheduled remove it first
-		if(event == timerSchedule[uint8tmp].event) {
-			memmove(&timerSchedule[uint8tmp], &timerSchedule[uint8tmp + 1], (TIMER_SCHEDULE_SIZE - 1 - uint8tmp) * sizeof(TimerQueue));
-			timerSchedule[TIMER_SCHEDULE_SIZE - 1].event = HWE_NO_EVENT;//make sure the last entry is free to use now
-			break;
-		}
-
-	if(HWE_NO_EVENT != timerSchedule[TIMER_SCHEDULE_SIZE - 1].event)	//now check if scheduling table has room for the new event
-		ErrorHandler("Timer is full");									//TODO: this is endless loop, should be changed to device reset
-
-	for(uint8tmp = 0; uint8tmp < TIMER_SCHEDULE_SIZE; uint8tmp++) {		//schedule the new event
-	//TODO: implement less than 2 subseconds (including 0) time difference between events, by triggering next event simultaneously
-	//	if((HWE_NO_EVENT != timerSchedule[uint8tmp].event) && (abs(timerSchedule[uint8tmp].time - newEntry.time) < 10))
-	//		break;
-
-		if((HWE_NO_EVENT == timerSchedule[uint8tmp].event) || (newEntry.time <= timerSchedule[uint8tmp].time)) {
-			memmove(&timerSchedule[uint8tmp + 1], &timerSchedule[uint8tmp], (TIMER_SCHEDULE_SIZE - 1 - uint8tmp) * sizeof(TimerQueue));
-			timerSchedule[uint8tmp].time = newEntry.time;
-			timerSchedule[uint8tmp].event = newEntry.event;
-			break;
-		}
-	}
-
-	//reprogram the alarm if the new event timeout expires first
-	if(0 == uint8tmp) {
-		while(!LL_RTC_IsActiveFlag_ALRBW(RTC));
-		LL_RTC_ALMB_SetSubSecond(RTC, 1024 - subsecond);
-		LL_RTC_ALMB_SetSecond(RTC, __LL_RTC_CONVERT_BIN2BCD(second));
-		LL_RTC_ALMB_SetMinute(RTC, __LL_RTC_CONVERT_BIN2BCD(minute));
-	}
-
-	LL_RTC_ALMB_Enable(RTC);
-//	LL_RTC_EnableWriteProtection(RTC);
-}
-
-
-
-
 //starts one-shot timer to timeout milliseconds
 void startLpTimer(uint16_t timeout)
 {
@@ -562,8 +496,6 @@ void startLpTimer(uint16_t timeout)
 	NVIC_EnableIRQ(LPTIM1_IRQn);
 }
 */
-
-
 
 
 void startUart1Msg(uint8_t command)
@@ -614,6 +546,17 @@ void sendUart2Message(uint8_t *data, uint8_t length)
 	USART_ptr(USART_2)->CR1 |= USART_CR1_TCIE;							//enable transfer complete interrupt initiating interrupt - driven transmission
 }
 
+void sendLpUartMessage(uint8_t *data, uint8_t length)
+{
+	while(HardwareEvents & HWE_LPUART_TRANSMITTING);
+	HardwareEvents |= HWE_LPUART_TRANSMITTING;							//uart transmission is in progress
+	if(length > sizeof(LpUartTx.data))
+		length = sizeof(LpUartTx.data);
+	memmove(LpUartTx.data, data, length);
+	LpUartTx.size = length;												//number of bytes in a message including first length byte
+	LpUartTx.counter = 0;												//TX buffer should be filled and size properly set
+	USART_ptr(LPUART)->CR1 |= USART_CR1_TCIE;							//enable transfer complete interrupt initiating interrupt - driven transmission
+}
 
 void spiAccessRegisters(uint8_t *data, uint8_t length)
 {
@@ -650,70 +593,54 @@ void spiAccessRegisters2(uint8_t command, uint8_t *data, uint8_t length)
 	setPortBit(RADIO_NSS_PORT, RADIO_NSS_BIT);							//deactivate NSS line
 }
 
-//TODO: rewrite
+
 //the stop parameter should be zero if i2cRead is called right after i2cWrite, to generate restart condition
-void i2cWrite(uint8_t address, uint8_t *data, uint8_t length, uint8_t stop)
+int i2cWrite(uint8_t *data, uint8_t length, uint8_t stop)
 {
+	LL_I2C_SetSlaveAddr(I2C1, ACCELEROMETER_I2C_ADDRESS);
+	LL_I2C_SetTransferSize(I2C1, length);
+	LL_I2C_SetTransferRequest(I2C1, LL_I2C_REQUEST_WRITE);
 	LL_I2C_GenerateStartCondition(I2C1);								//Initiate a Start condition to the Slave device
 
-	// LL_I2C_SetSlaveAddr(I2C_TypeDef *I2Cx, uint32_t SlaveAddr)
-	//	LL_I2C_SetTransferRequest(I2C_TypeDef *I2Cx, uint32_t TransferRequest)
-
-//	while(!LL_I2C_IsActiveFlag_SB(I2C1));								//wait until Start Bit transmitted (SB flag raised)
-
-	//LL_I2C_HandleTransfer(I2C_TypeDef *I2Cx, uint32_t SlaveAddr, uint32_t SlaveAddrSize,
-
-	LL_I2C_TransmitData8(I2C1, (address << 1));							//Send Slave address with a 7-Bit SLAVE_OWN_ADDRESS for a write request
-
-	while(!LL_I2C_IsActiveFlag_ADDR(I2C1));								//wait until Address Acknowledgement received (ADDR flag raised)
-
-	LL_I2C_ClearFlag_ADDR(I2C1);										//Clear ADDR flag value in ISR register
-
-	while(length > 0)													//Transmit data
-		if(LL_I2C_IsActiveFlag_TXE(I2C1)) {								//Check TXE flag value in ISR register and write next data before previous is transmitted
-			LL_I2C_TransmitData8(I2C1, (*data++));						//Write data in Transmit Data register. TXE flag is cleared by writing data in TXDR register
-			length--;
-		}
-
-	if(stop) {
-		while(!LL_I2C_IsActiveFlag_TXE(I2C1));
-		LL_I2C_GenerateStopCondition(I2C1);								//Generate Stop condition
+	while(!LL_I2C_IsActiveFlag_TC(I2C1)) {								//wait until length bytes are transmitted
+		if(LL_I2C_IsActiveFlag_NACK(I2C1))
+			return 0;
+//		if(LL_I2C_IsActiveFlag_TXE(I2C1))
+		if(LL_I2C_IsActiveFlag_TXIS(I2C1))
+			LL_I2C_TransmitData8(I2C1, *data++);
 	}
 
+	if(stop) {
+		LL_I2C_GenerateStopCondition(I2C1);								//Generate Stop condition
+		while(!LL_I2C_IsActiveFlag_STOP(I2C1));							//wait until the stop appears on I2C bus
+	}
+
+	return 1;
 }
 
-//TODO: rewrite
-void i2cRead(uint8_t address, uint8_t *data, uint8_t length)
-{
-	LL_I2C_AcknowledgeNextData(I2C1, LL_I2C_ACK);						//Prepare acknowledge for Master data reception
 
+void i2cRead(uint8_t *data, uint8_t length)
+{
+	LL_I2C_SetSlaveAddr(I2C1, ACCELEROMETER_I2C_ADDRESS);
+	LL_I2C_SetTransferSize(I2C1, length);
+	LL_I2C_SetTransferRequest(I2C1, LL_I2C_REQUEST_READ);
 	LL_I2C_GenerateStartCondition(I2C1);								//Initiate a Start condition to the Slave device
 
-//	while(!LL_I2C_IsActiveFlag_SB(I2C1));								//wait until Start Bit transmitted (SB flag raised)
-
-	LL_I2C_TransmitData8(I2C1, (address << 1) | I2C_REQUEST_READ);		//Send Slave address with a 7-Bit SLAVE_OWN_ADDRESS for a write request
-
-	while(!LL_I2C_IsActiveFlag_ADDR(I2C1));								//wait until Address Acknowledgement received (ADDR flag raised)
-
-	if(1 == length)														//for one-byte reception NAK is activated here
-		LL_I2C_AcknowledgeNextData(I2C1, LL_I2C_NACK);
-
-	LL_I2C_ClearFlag_ADDR(I2C1);										//Clear ADDR flag value in ISR register
-
 	//here master is in receive mode activated by I2C_REQUEST_READ bit
-	while(length > 1)													//receive data
+	while(length)														//receive data
 		if(LL_I2C_IsActiveFlag_RXNE(I2C1)) {							//Check RXNE flag value in ISR register and read next data byte
-			(*data++) = LL_I2C_ReceiveData8(I2C1);						//Read data in Receive Data register. RXNE flag is cleared by reading data from RXDR register
+			*data++ = LL_I2C_ReceiveData8(I2C1);						//Read data in Receive Data register. RXNE flag is cleared by reading data from RXDR register
 			length--;
 		}
 
+//	if(LL_I2C_IsActiveFlag_TC(I2C1))
 
-	LL_I2C_AcknowledgeNextData(I2C1, LL_I2C_NACK);						//generate NACK
 	LL_I2C_GenerateStopCondition(I2C1);									//and Stop condition after receiving next byte
+	while(!LL_I2C_IsActiveFlag_STOP(I2C1));								//wait until the stop appears on I2C bus
 
-	while(!LL_I2C_IsActiveFlag_RXNE(I2C1));								//get the last data byte
-	*data = LL_I2C_ReceiveData8(I2C1);
+//	return 0;
 }
+
 
 
 inline void boardGreenLedOn(void)

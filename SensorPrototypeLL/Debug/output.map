@@ -643,11 +643,11 @@ LOAD c:/ac6/systemworkbench/plugins/fr.ac6.mcu.externaltools.arm-none.win32_1.7.
                 0x000001a2       0x1e c:/ac6/systemworkbench/plugins/fr.ac6.mcu.externaltools.arm-none.win32_1.7.0.201602121829/tools/compiler/bin/../lib/gcc/arm-none-eabi/5.2.1/armv6-m/crtn.o
 OUTPUT(SensorPrototypeLL.elf elf32-littlearm)
 
-.debug_info     0x00000000     0x3b42
- .debug_info    0x00000000     0x12bd src/main.o
- .debug_info    0x000012bd     0x2161 src/stm32l05x_board.o
- .debug_info    0x0000341e      0x6b0 src/stm32l0xx_it.o
- .debug_info    0x00003ace       0x74 startup/startup_stm32l053xx.o
+.debug_info     0x00000000     0x3b66
+ .debug_info    0x00000000     0x12cf src/main.o
+ .debug_info    0x000012cf     0x2173 src/stm32l05x_board.o
+ .debug_info    0x00003442      0x6b0 src/stm32l0xx_it.o
+ .debug_info    0x00003af2       0x74 startup/startup_stm32l053xx.o
 
 .debug_abbrev   0x00000000      0x7f3
  .debug_abbrev  0x00000000      0x25e src/main.o
@@ -725,12 +725,12 @@ OUTPUT(SensorPrototypeLL.elf elf32-littlearm)
  .debug_line    0x0000123a      0x683 src/stm32l0xx_it.o
  .debug_line    0x000018bd       0x83 startup/startup_stm32l053xx.o
 
-.debug_str      0x00000000    0x46ef4
- .debug_str     0x00000000    0x43ef4 src/main.o
-                              0x441c7 (size before relaxing)
- .debug_str     0x00043ef4     0x2f16 src/stm32l05x_board.o
-                              0x46e6a (size before relaxing)
- .debug_str     0x00046e0a       0xea src/stm32l0xx_it.o
+.debug_str      0x00000000    0x46f22
+ .debug_str     0x00000000    0x43f22 src/main.o
+                              0x441f5 (size before relaxing)
+ .debug_str     0x00043f22     0x2f16 src/stm32l05x_board.o
+                              0x46e98 (size before relaxing)
+ .debug_str     0x00046e38       0xea src/stm32l0xx_it.o
                               0x439d4 (size before relaxing)
 
 .comment        0x00000000       0x6e

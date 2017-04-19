@@ -240,6 +240,7 @@ uint32_t GpsTask(GpsTaskCommands command, uint32_t parameter)
 		if(GTS_IDLE != state)
 			return GTS_FAILED;
 
+		sendLpUartMessage("blia", 4);									//to exit from sleep mode
 		fixAttempts = 0;
 		blinkCycles = 0;
 		setTimer(GPS_FIX_WAIT_BLINK_TIME, HWE_GPS_TIMEOUT);				//wait for a fix
@@ -290,6 +291,7 @@ uint32_t GpsTask(GpsTaskCommands command, uint32_t parameter)
 						boardWhiteLedOn();
 						boardRedLedOn();
 						state = GTS_FAILED;
+						sendLpUartMessage("$PMTK161,0*28\r\n", 15);		//put GPS into low-power mode
 					}
 				}
 				break;
@@ -304,6 +306,7 @@ uint32_t GpsTask(GpsTaskCommands command, uint32_t parameter)
 					boardGreenLedOn();
 					boardWhiteLedOn();
 					state = GTS_SUCCESS;
+					sendLpUartMessage("$PMTK161,0*28\r\n", 15);		//put GPS into low-power mode
 				} else
 					USARTx_RX_INTERRUPT_ENABLE(LPUART);				//continue reading data from UART
 				break;
