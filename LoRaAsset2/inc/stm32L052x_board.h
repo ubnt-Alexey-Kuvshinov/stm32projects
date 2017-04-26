@@ -85,14 +85,14 @@ typedef enum
 
 
 //LEDs
-#define AUX_GREEN_LED_PORT			IO2_PORT
-#define AUX_GREEN_LED_BIT			IO2_BIT
+#define WHITE_LED_PORT				PORT_C
+#define WHITE_LED_BIT				GPIO_11
 
-#define AUX_RED_LED_PORT			IO1_PORT
-#define AUX_RED_LED_BIT				IO1_BIT
+#define AUX_GREEN_LED_PORT			PORT_C
+#define AUX_GREEN_LED_BIT			GPIO_1
 
-#define AUX_WHITE_LED_PORT			PORT_A
-#define AUX_WHITE_LED_BIT			GPIO_12
+#define AUX_RED_LED_PORT			PORT_C
+#define AUX_RED_LED_BIT				GPIO_2
 
 //UART
 #define UART1_TX_PORT				PORT_A								//this is marked as UART3 on schematic
@@ -115,22 +115,22 @@ typedef enum
 
 //Radio
 #define RADIO_DIO0_PORT				PORT_B
-#define RADIO_DIO0_BIT				GPIO_12
+#define RADIO_DIO0_BIT				GPIO_2
 
 #define RADIO_DIO1_PORT				PORT_B
-#define RADIO_DIO1_BIT				GPIO_13
+#define RADIO_DIO1_BIT				GPIO_3
 
 #define RADIO_DIO2_PORT				PORT_B
-#define RADIO_DIO2_BIT				GPIO_14
+#define RADIO_DIO2_BIT				GPIO_4
 
 #define RADIO_DIO3_PORT				PORT_B
-#define RADIO_DIO3_BIT				GPIO_15
+#define RADIO_DIO3_BIT				GPIO_5
 
-//#define RADIO_DIO4_PORT			PORT_C
-//#define RADIO_DIO4_BIT			GPIO_9
+#define RADIO_DIO4_PORT				PORT_B
+#define RADIO_DIO4_BIT				GPIO_6
 
-//#define RADIO_DIO5_PORT			PORT_C
-//#define RADIO_DIO5_BIT			GPIO_12
+#define RADIO_DIO5_PORT				PORT_B
+#define RADIO_DIO5_BIT				GPIO_7
 
 #define RADIO_RESET_PORT			PORT_A
 #define RADIO_RESET_BIT				GPIO_8
@@ -150,8 +150,8 @@ typedef enum
 #define RF_PA_HIGH_PWR_PORT			PORT_B								//RF output source switch, Low - RFO_HF, High - PA_BOOST
 #define RF_PA_HIGH_PWR_BIT			GPIO_0
 
-#define RF_CPS_PORT					PORT_A								//gain control in receive mode: Low - receive low gain, High - receive high gain
-#define RF_CPS_BIT					GPIO_11
+#define RF_CPS_PORT					PORT_C								//gain control in receive mode: Low - receive low gain, High - receive high gain
+#define RF_CPS_BIT					GPIO_10
 
 #define RF_CSD_PORT					PORT_B								//Shutdown control, should be High for RX or TX
 #define RF_CSD_BIT					GPIO_1
@@ -160,21 +160,14 @@ typedef enum
 #define GSINT1_PORT					PORT_A								//accelerometer interrupt 1
 #define GSINT1_BIT					GPIO_0
 
-#define GSINT2_PORT					PORT_B								//accelerometer interrupt 1
-#define GSINT2_BIT					GPIO_2
+#define GSINT2_PORT					PORT_A								//accelerometer interrupt 2
+#define GSINT2_BIT					GPIO_1
 
 #define I2C1_SCL_PORT				PORT_B								//I2C interface
 #define I2C1_SCL_BIT				GPIO_8
 
 #define I2C1_SDA_PORT				PORT_B
 #define I2C1_SDA_BIT				GPIO_9
-
-//IOs from RJ45 connector
-#define IO1_PORT					PORT_B
-#define IO1_BIT						GPIO_3
-
-#define IO2_PORT					PORT_A
-#define IO2_BIT						GPIO_15
 
 
 
@@ -269,20 +262,6 @@ typedef struct {
 
 #define TIMER_SCHEDULE_SIZE	6											//max number of events that can be scheduled
 
-/*
-typedef struct {
-	union {
-		struct  {
-			uint16_t subseconds;										//subseconds to match for AlarmB trigger
-			uint8_t seconds;											//seconds to match for AlarmB trigger
-			uint8_t minutes;											//minutes to match for AlarmB trigger
-		};
-		int32_t time;													//time components combined for comparison
-	};
-	uint32_t event;														//event to trigger when it's time expires
-} TimerQueue;
-*/
-
 typedef struct  {
 	uint16_t timeout;													//number of LPTIM ticks remaining before triggering event
 	uint16_t event;														//timer event
@@ -315,13 +294,10 @@ extern uint8_t LpUartRxBuffer[32];
 extern uint8_t LpUartRxCounter;
 extern LpUart LpUartTx;
 
-void sendUart1Message(uint8_t *data, uint8_t length);
-
 extern uint8_t Uart2RxBuffer[CAMERA_BUFFER_SIZE];
 extern uint8_t Uart2RxCounter;
 extern TxUart2 Uart2Tx;
 
-//extern TimerQueue timerSchedule[TIMER_SCHEDULE_SIZE];
 extern TimerQueueEntry timerSchedule[TIMER_SCHEDULE_SIZE];
 
 extern int32_t tmp;

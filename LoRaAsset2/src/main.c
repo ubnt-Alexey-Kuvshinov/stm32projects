@@ -3,11 +3,11 @@
 
 
 struct SystemState DeviceState;
-uint32_t HardwareEvents;// = HWE_KEEP_CPU_RUNNING;
+uint32_t HardwareEvents = HWE_KEEP_CPU_RUNNING;
 uint16_t SoftwareEvents;
 uint32_t EventMask;
 
-const uint32_t * const DeviceID = (uint32_t *)0x1FF80050;	//ToDo check this address
+const uint32_t * const DeviceID = (uint32_t *)0x1FF80050;
 
 uint8_t LpUartRxBuffer[32];
 uint8_t LpUartRxCounter;
@@ -157,8 +157,8 @@ void stateMachine(void)
 			GpsTask(GTC_RESET, 0);
 			GpsTask(GTC_START, 0);													//start mining for GPS data
 */
-//			AccelerometerTask(ATC_RESET, 0);
-//			AccelerometerTask(ATC_START, AR_OUT_TEMP_L);							//start temperature reading process
+			AccelerometerTask(ATC_RESET, 0);
+			AccelerometerTask(ATC_START, AR_OUT_TEMP_L);							//start temperature reading process
 			radioTaskRetries = 1;													//make up to this many attempts to transmit the results over the radio
 			setTimer(timer_milliseconds(300), HWE_GENERIC_TIMEOUT);					//set the result check time
 
@@ -255,7 +255,7 @@ void stateMachine(void)
 			}
 
 			if(HardwareEvents & HWE_GENERIC_TIMEOUT) {
-				boardRedLedToggle();
+//				boardRedLedToggle();
 				CLEAR_EVENT(HWE_GENERIC_TIMEOUT);
 
 				//Let's see what's going on on the board:
@@ -311,7 +311,7 @@ void stateMachine(void)
 					(GTS_IDLE == GpsTask(GTC_GET_STATE, 0)) &&
 					(ATS_IDLE == AccelerometerTask(ATC_GET_STATE, 0))) {
 
-					DeviceState.StateAndSubstate = STATE_IDLE;						//BYE, GOING TO STANDBY
+//					DeviceState.StateAndSubstate = STATE_IDLE;						//BYE, GOING TO STANDBY
 				} else
 					setTimer(timer_milliseconds(300), HWE_GENERIC_TIMEOUT);			//check tasks again after this long
 			}
@@ -499,7 +499,7 @@ int main(void)
 					LpUartRxCounter = 0;
 				}
 
-				if(LpUartRxCounter >= sizeof(LpUartRxBuffer))							//can not be >= sizeof(LpUartRxBuffer) as the ISR does not update overflown counter
+				if(LpUartRxCounter >= sizeof(LpUartRxBuffer))						//can not be >= sizeof(LpUartRxBuffer) as the ISR does not update overflown counter
 					LpUartRxCounter = 0;
 
 				USARTx_RX_INTERRUPT_ENABLE(LPUART);

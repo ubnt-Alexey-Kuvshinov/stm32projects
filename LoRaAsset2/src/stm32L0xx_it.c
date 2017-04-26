@@ -85,35 +85,24 @@ void WWDG_IRQHandler(void)
 void EXTI0_1_IRQHandler(void)
 {
 	if(EXTI->PR & EXTI_PR_PIF0) {													//movement interrupt from accelerometer
-		EXTI->PR |= EXTI_PR_PIF0;
+		EXTI->PR = (EXTI_PR_PIF0);
 	}
 }
 
 void EXTI2_3_IRQHandler(void)
 {
-while(1);
+	if(EXTI->PR & EXTI_PR_PIF2) {													//DIO0 from the radio
+		EXTI->PR = EXTI_PR_PIF2;
+		HardwareEvents |= HWE_DIO0;
+	}
 }
 
 void EXTI4_15_IRQHandler(void)
 {
-/*	if(EXTI->PR & EXTI_PR_PIF13)					//Button
-	{
-		EXTI->PR |= EXTI_PR_PIF13;
-		if(readPortBit(BUTTON_PORT, BUTTON_BIT))
-			HardwareEvents |= HWE_BUTTON_PRESS;
-		else
-			HardwareEvents |= HWE_BUTTON_RELEASE;
-//		boardGreenLedToggle();
-	}
-	else */
-	if(EXTI->PR & EXTI_PR_PIF12) {													//DIO0 from the radio
-		EXTI->PR |= EXTI_PR_PIF12;
-		HardwareEvents |= HWE_DIO0;
-	} else if(EXTI->PR & EXTI_PR_PIF15) {											//DIO3 from the radio
-		EXTI->PR |= EXTI_PR_PIF15;
+	if(EXTI->PR & EXTI_PR_PIF5) {													//DIO3 from the radio
+		EXTI->PR = EXTI_PR_PIF5;
 		HardwareEvents |= HWE_DIO3;
-	} else
-		ErrorHandler("IRQHandler error");
+	}
 }
 
 
@@ -140,7 +129,7 @@ void USART1_IRQHandler(void)
 			USART_ptr(USART_1)->CR1 &= ~USART_CR1_TCIE;								//disable transfer complete interrupt
 			HardwareEvents &= ~HWE_UART1_TRANSMITTING;								//software may send next message
 		} else {
-			USART_ptr(USART_1)->TDR = Uart1Tx.data[Uart1Tx.counter++];			//send next byte which also clears transfer complete flag
+			USART_ptr(USART_1)->TDR = Uart1Tx.data[Uart1Tx.counter++];				//send next byte which also clears transfer complete flag
 		}
 	} else {																		//unknown interrupt
 		USART_ptr(USART_1)->CR1 &= ~(USART_CR1_RE | USART_CR1_TE);					//disable transmitter and receiver
@@ -272,20 +261,4 @@ void LPTIM1_IRQHandler(void)
 }
 
 
-
-
-void I2C1_IRQHandler(void) {
-	  while (1)
-		  boardRedLedToggle();
-}
-
-void USB_IRQHandler(void) {
-	  while (1)
-		  boardRedLedToggle();
-}
-
-void TSC_IRQHandler(void) {
-	  while (1)
-		  boardRedLedToggle();
-}
 

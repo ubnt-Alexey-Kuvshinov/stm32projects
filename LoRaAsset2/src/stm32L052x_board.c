@@ -87,7 +87,7 @@ struct GPIO_Line
 static const struct GPIO_Line inputs[] = {{GSINT1_PORT, GSINT1_BIT}, {GSINT2_PORT, GSINT2_BIT},
 		{RADIO_DIO0_PORT, RADIO_DIO0_BIT}, {RADIO_DIO1_PORT, RADIO_DIO1_BIT}, {RADIO_DIO2_PORT, RADIO_DIO2_BIT}, {RADIO_DIO3_PORT, RADIO_DIO3_BIT}};
 
-static const struct GPIO_Line outputs[] = {{AUX_WHITE_LED_PORT, AUX_WHITE_LED_BIT}, {AUX_RED_LED_PORT, AUX_RED_LED_BIT}, {AUX_GREEN_LED_PORT, AUX_GREEN_LED_BIT},
+static const struct GPIO_Line outputs[] = {{WHITE_LED_PORT, WHITE_LED_BIT}, {AUX_RED_LED_PORT, AUX_RED_LED_BIT}, {AUX_GREEN_LED_PORT, AUX_GREEN_LED_BIT},
 		{RADIO_RESET_PORT, RADIO_RESET_BIT}, {RADIO_NSS_PORT, RADIO_NSS_BIT}, {RADIO_MOSI_PORT, RADIO_MOSI_BIT}, {RADIO_SCK_PORT, RADIO_SCK_BIT},
 		{RF_PA_HIGH_PWR_PORT, RF_PA_HIGH_PWR_BIT}, {RF_CPS_PORT, RF_CPS_BIT}, {RF_CSD_PORT, RF_CSD_BIT},
 		{I2C1_SCL_PORT, I2C1_SCL_BIT}};
@@ -222,8 +222,8 @@ static inline void configureAccelerometer(void)
 	AccelerometerWriteBytes(accelerometerData.buffer, 2);
 
 	accelerometerData.buffer[0] = AR_INT1_THS;
-//	accelerometerData.buffer[1] = 0b00111000;							//interrupt threshold
-	accelerometerData.buffer[1] = 0b00100000;							//interrupt threshold
+//	accelerometerData.buffer[1] = 0b00111000;							//interrupt threshold - sensitive
+	accelerometerData.buffer[1] = 0b00101111;	//0b00100000;							//interrupt threshold
 	accelerometerData.buffer[2] = 0b00000001;							//interrupt duration
 	AccelerometerWriteBytes(accelerometerData.buffer, 3);
 
@@ -233,11 +233,12 @@ static inline void configureAccelerometer(void)
 	NVIC_SetPriority(EXTI0_1_IRQn, GPIO_PRIORITY);						//enable button interrupts in interrupt controller
 	NVIC_EnableIRQ(EXTI0_1_IRQn);
 
-	LL_SYSCFG_SetEXTISource(LL_SYSCFG_EXTI_PORTB, LL_SYSCFG_EXTI_LINE2);//Select Port B for EXTI2 line input source
-	LL_EXTI_EnableRisingTrig_0_31(EXTI_IMR_IM2);						//Rising trigger event configuration bit of line 2
-	LL_EXTI_EnableIT_0_31(EXTI_IMR_IM2);								//enable EXTI2 line interrupt
-	NVIC_SetPriority(EXTI2_3_IRQn, GPIO_PRIORITY);						//enable button interrupts in interrupt controller
-	NVIC_EnableIRQ(EXTI2_3_IRQn);
+/*	LL_SYSCFG_SetEXTISource(LL_SYSCFG_EXTI_PORTA, LL_SYSCFG_EXTI_LINE1);//Select Port A for EXTI1 line input source
+	LL_EXTI_EnableRisingTrig_0_31(EXTI_IMR_IM1);						//Rising trigger event configuration bit of line 2
+	LL_EXTI_EnableIT_0_31(EXTI_IMR_IM1);								//enable EXTI2 line interrupt
+	NVIC_SetPriority(EXTI0_1_IRQn, GPIO_PRIORITY);						//enable button interrupts in interrupt controller
+	NVIC_EnableIRQ(EXTI0_1_IRQn);
+*/
 }
 
 
@@ -378,13 +379,15 @@ static inline void enableLPTim(void)
 
 static inline void configureRadio(void)
 {
-	LL_SYSCFG_SetEXTISource(LL_SYSCFG_EXTI_PORTB, LL_SYSCFG_EXTI_LINE12);//Connect DIO0 pin to EXTI12 line
-	LL_EXTI_EnableRisingTrig_0_31(EXTI_IMR_IM12);						//configure EXTI12 for rising trigger interrupt
-	LL_EXTI_EnableIT_0_31(EXTI_IMR_IM12);								//enable line 12 interrupt in EXTI
+	LL_SYSCFG_SetEXTISource(LL_SYSCFG_EXTI_PORTB, LL_SYSCFG_EXTI_LINE2);//Connect DIO0 pin to EXTI_2 line
+	LL_EXTI_EnableRisingTrig_0_31(EXTI_IMR_IM2);						//configure EXTI_2 for rising trigger interrupt
+	LL_EXTI_EnableIT_0_31(EXTI_IMR_IM2);								//enable line 2 interrupt in EXTI
 
-	LL_SYSCFG_SetEXTISource(LL_SYSCFG_EXTI_PORTB, LL_SYSCFG_EXTI_LINE15);//Connect DIO3 pin to EXTI15 line
-	LL_EXTI_EnableRisingTrig_0_31(EXTI_IMR_IM15);						//configure EXTI15 for rising trigger interrupt
-	LL_EXTI_EnableIT_0_31(EXTI_IMR_IM15);								//enable line 15 interrupt in EXTI
+	LL_SYSCFG_SetEXTISource(LL_SYSCFG_EXTI_PORTB, LL_SYSCFG_EXTI_LINE5);//Connect DIO3 pin to EXTI_5 line
+	LL_EXTI_EnableRisingTrig_0_31(EXTI_IMR_IM5);						//configure EXTI_5 for rising trigger interrupt
+	LL_EXTI_EnableIT_0_31(EXTI_IMR_IM5);								//enable line 5 interrupt in EXTI
+	NVIC_SetPriority(EXTI2_3_IRQn, GPIO_PRIORITY);						//enable the EXTI lines interrupt in interrupt controller
+	NVIC_EnableIRQ(EXTI2_3_IRQn);
 	NVIC_SetPriority(EXTI4_15_IRQn, GPIO_PRIORITY);						//enable the EXTI lines interrupt in interrupt controller
 	NVIC_EnableIRQ(EXTI4_15_IRQn);
 
@@ -522,8 +525,6 @@ void lpUartSendText(char *text)
 	sendLpUartMessage();
 }
 
-
-
 void sendUart2Message(uint8_t *data, uint8_t length)
 {
 	while(HardwareEvents & HWE_UART2_TRANSMITTING);
@@ -623,12 +624,8 @@ void i2cRead(uint8_t *data, uint8_t length)
 			length--;
 		}
 
-//	if(LL_I2C_IsActiveFlag_TC(I2C1))
-
 	LL_I2C_GenerateStopCondition(I2C1);									//and Stop condition after receiving next byte
 	while(!LL_I2C_IsActiveFlag_STOP(I2C1));								//wait until the stop appears on I2C bus
-
-//	return 0;
 }
 
 
@@ -653,17 +650,17 @@ void boardGreenLedToggle(void)
 
 inline void boardWhiteLedOn(void)
 {
-	setPortBit(AUX_WHITE_LED_PORT, AUX_WHITE_LED_BIT);
+	setPortBit(WHITE_LED_PORT, WHITE_LED_BIT);
 }
 
 inline void boardWhiteLedOff(void)
 {
-	resetPortBit(AUX_WHITE_LED_PORT, AUX_WHITE_LED_BIT);
+	resetPortBit(WHITE_LED_PORT, WHITE_LED_BIT);
 }
 
 void boardWhiteLedToggle(void)
 {
-	if(readPortBit(AUX_WHITE_LED_PORT, AUX_WHITE_LED_BIT))
+	if(readPortBit(WHITE_LED_PORT, WHITE_LED_BIT))
 		boardWhiteLedOff();
 	else
 		boardWhiteLedOn();

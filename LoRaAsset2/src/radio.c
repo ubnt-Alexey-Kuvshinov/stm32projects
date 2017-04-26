@@ -99,7 +99,7 @@ void RadioTransmit()
 void RadioReceive(void)
 {
 //	driveRfSwitch(0x07);												//set to RX
-	driveRfSwitch(0x03);												//set to RX
+	driveRfSwitch(0b011);												//set to RX high gain
 //	uint32tmp = (0x00 << 16) | (0x00 << 8) | RC_SET_FIFO_POINTER;		//set FIFO and TX base addresses to 00
 //	spiAccessRegisters((uint8_t *)&uint32tmp, 3);
 
@@ -119,7 +119,11 @@ static void RadioTaskGoToFailed(RadioTaskStatus *state)
 {
 	CLEAR_EVENT(HWE_RADIO_TRANSMITTING);
 	CLEAR_EVENT(HWE_RADIO_RECEIVING);
-//	resetPortBit(RADIO_RESET_PORT, RADIO_RESET_BIT);						//turn the radio chip off, It is the opposite for SX1276!
+
+//	uint32tmp = (0x80 << 8) | RC_SET_MODEM_MODE;						//move to STOP mode for conserving power
+//	spiAccessRegisters((uint8_t *)&uint32tmp, 2);
+
+//	resetPortBit(RADIO_RESET_PORT, RADIO_RESET_BIT);					//turn the radio chip off, It is the opposite for SX1276!
 	boardRedLedOn();
 	*state = RTS_FAILED;
 }
@@ -329,9 +333,11 @@ gotit:
 
 				sendLpUartMessage();
 
-				RadioBuffer[0] = RC_SET_MODEM_MODE;						//move to standby mode for conserving power
-				RadioBuffer[1] = RM_STANDBY;
-				spiAccessRegisters(RadioBuffer, 2);
+//				RadioBuffer[0] = RC_SET_MODEM_MODE;						//move to standby mode for conserving power
+//				RadioBuffer[1] = RM_STANDBY;
+//				spiAccessRegisters(RadioBuffer, 2);
+				uint32tmp = (0x00 << 8) | RC_SET_MODEM_MODE;			//move to STOP mode for conserving power
+				spiAccessRegisters((uint8_t *)&uint32tmp, 2);
 				break;
 			}		//switch (state)
 			break;	//case HWE_DIO0
