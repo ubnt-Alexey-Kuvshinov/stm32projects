@@ -3,7 +3,7 @@
 
 
 struct SystemState DeviceState;
-uint32_t HardwareEvents = HWE_KEEP_CPU_RUNNING;
+uint32_t HardwareEvents;
 uint16_t SoftwareEvents;
 uint32_t EventMask;
 
@@ -156,10 +156,10 @@ void stateMachine(void)
 
 			GpsTask(GTC_RESET, 0);
 			GpsTask(GTC_START, 0);													//start mining for GPS data
-*/
+
 			AccelerometerTask(ATC_RESET, 0);
 			AccelerometerTask(ATC_START, AR_OUT_TEMP_L);							//start temperature reading process
-			radioTaskRetries = 1;													//make up to this many attempts to transmit the results over the radio
+*/			radioTaskRetries = 1;													//make up to this many attempts to transmit the results over the radio
 			setTimer(timer_milliseconds(300), HWE_GENERIC_TIMEOUT);					//set the result check time
 
 			DeviceState.substate = STATE_BUSINESS;
@@ -184,12 +184,21 @@ void stateMachine(void)
 				case RC_SET_RED_LED:
 					driveRedLed(LpUartCommand[2]);
 					break;
-				case RC_TMP_GREEN_TOGGLE:
-					boardGreenLedToggle();
+
+				case RC_GET_CURRENT:
+					DeviceState.StateAndSubstate = STATE_READING_BOARD_CURRENT;
 					break;
-				case RC_TMP_RED_TOGGLE:
-					boardRedLedToggle();
+
+				case RC_SET_MCU_ACTIVE_MODE:
+					if(LpUartCommand[2]) {
+						HardwareEvents |= HWE_KEEP_CPU_RUNNING;
+						addToLpUartMsg(1);
+					} else {
+						HardwareEvents &= ~HWE_KEEP_CPU_RUNNING;
+						addToLpUartMsg(0);
+					}
 					break;
+
 				case RC_SET_WAKEUP:
 					DeviceState.StateAndSubstate = STATE_IDLE;
 					CLEAR_EVENT(HWE_KEEP_CPU_RUNNING);
@@ -233,9 +242,20 @@ void stateMachine(void)
 				case RC_GET_TEMP:
 					DeviceState.StateAndSubstate = STATE_READING_ACCELEROMETER_TEMPERATURE;
 					break;
-				case RC_GET_GPS:
-					//sendLpUartMessage("$PMTK161,1*29\r\n", 15);
-					sendUart1Message("$PMTK161,0*28\r\n", 15);
+				case RC_SET_GPS_MODE:
+					switch(LpUartCommand[2]) {
+					case 0:
+						setPortBit(GPS_POWER_PORT, GPS_POWER_BIT);						//turn off GPS power
+						break;
+					case 1:
+						resetPortBit(GPS_POWER_PORT, GPS_POWER_BIT);					//turn on GPS power;
+						break;
+					case 2:
+						//sendLpUartMessage("$PMTK161,1*29\r\n", 15);
+						sendUart1Message("$PMTK161,0*28\r\n", 15);						//switch GPS to sleep mode
+					default:
+						sendUart1Message("wake up", 7);									//switch GPS to active mode
+					}
 					break;
 				case RC_GET_PICTURE:
 					CameraTask(CTC_RESET, 0);
@@ -311,9 +331,12 @@ void stateMachine(void)
 					(GTS_IDLE == GpsTask(GTC_GET_STATE, 0)) &&
 					(ATS_IDLE == AccelerometerTask(ATC_GET_STATE, 0))) {
 
-//					DeviceState.StateAndSubstate = STATE_IDLE;						//BYE, GOING TO STANDBY
-				} else
-					setTimer(timer_milliseconds(300), HWE_GENERIC_TIMEOUT);			//check tasks again after this long
+					if(0 == (HardwareEvents & HWE_KEEP_CPU_RUNNING)) {
+						DeviceState.StateAndSubstate = STATE_IDLE;					//BYE, GOING TO STANDBY
+						break;
+					}
+				}
+				setTimer(timer_milliseconds(300), HWE_GENERIC_TIMEOUT);				//check tasks again after this long
 			}
 
 			break;	//default substate
@@ -434,10 +457,51 @@ void stateMachine(void)
 					}
 
 					DeviceState.StateAndSubstate = STATE_WAITING_INPUT;
+					AccelerometerTask(ATC_RESET, 0); //for debugging, to skip sending the reading over the radio, TODO: remove
 					break;
 				}
 			}
 			break;	//STATE_READING_TEMPERATURE
+
+
+			case STATE_READING_BOARD_CURRENT:
+				switch(DeviceState.substate) {
+				case STATE_INIT:
+					LL_I2C_Enable(I2C1);
+					//initialize one time averaged current measurement taking about 1s
+					uint32tmp = 0x210C00;
+					i2cWrite(CURRENTMETER_I2C_ADDRESS, (uint8_t *)&uint32tmp, 3, 1);
+//				    LL_I2C_Disable(I2C1);
+
+					setTimer(timer_milliseconds(1300), HWE_INPUT_TIMEOUT);				//set task timeout
+					DeviceState.substate = STATE_BUSINESS;
+					break;
+				default:
+					if(HardwareEvents & HWE_INPUT_TIMEOUT)
+					{
+						CLEAR_EVENT(HWE_INPUT_TIMEOUT);
+						//read the current measurement result
+						//uint32tmp = 0x06;
+						uint32tmp = 0x01;
+						if(i2cWrite(CURRENTMETER_I2C_ADDRESS, (uint8_t *)&uint32tmp, 1, 0)) {	//successful write
+							i2cRead(CURRENTMETER_I2C_ADDRESS, (uint8_t *)&uint32tmp, 2);
+
+//							lpUartSendText("current: ");
+							startLpUartMsg(RC_GET_CURRENT);
+							addToLpUartMsg(uint32tmp);
+							addToLpUartMsg(uint32tmp >> 8);
+							sendLpUartMessage();
+						} else
+							lpUartSendText("failed reading current");
+
+					    LL_I2C_Disable(I2C1);
+						DeviceState.StateAndSubstate = STATE_WAITING_INPUT;
+
+						break;
+					}
+				}
+				break;	//STATE_READING_BOARD_CURRENT
+
 
 		case STATE_IDLE:
 			LL_RTC_ALMB_Disable(RTC);

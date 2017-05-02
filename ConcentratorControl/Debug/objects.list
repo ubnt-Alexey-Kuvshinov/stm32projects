@@ -1,4 +1,0 @@
-"src/main.o"
-"src/stm32F103RB_board.o"
-"src/stm32F103xx_it.o"
-"startup/startup_stm32f103xb.o"

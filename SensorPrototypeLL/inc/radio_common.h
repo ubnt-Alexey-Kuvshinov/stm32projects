@@ -608,13 +608,12 @@ typedef enum
 	RC_GET_TIME					= 0x04,								//get the current hour, minute and second
 	RC_SET_TIME					= 0x05,								//set the time in BCD format
 	RC_SET_RF_SWITCH			= 0x2D,								//byte 1 == 0 connects antenna to RFI, byte 1 == non 0, - to RFO
-	RC_SET_GREEN_LED			= REG_LR_PLL + 1,					//turn green LED on, "q"
-	RC_SET_RED_LED,													//turn green LED off, "r"
-	RC_TMP_GREEN_TOGGLE,											//toggle green LED, "s"
-	RC_TMP_RED_TOGGLE,												//toggle red LED, "v"
-
+	RC_SET_GREEN_LED			= REG_LR_PLL + 1,					//turn green LED on or OFF
+	RC_SET_RED_LED,													//turn red LED on or OFF
+	RC_GET_CURRENT,													//read board's current consumption
+	RC_SET_MCU_ACTIVE_MODE,											//keeps MCU Active if the following byte is non-zero, lets it sleep otherwise
 	RC_GET_TEMP					= 0xF7,								//get temperature reading
-	RC_GET_GPS				= 0xF8,								//temporary command to check a data string from gps
+	RC_SET_GPS_MODE				= 0xF8,								//the following bye: 00h - turns GPS power off, 01h - GPS power is ON while GPS is in low power, other - full power
 	RC_GET_PICTURE				= 0xF9,								//command to camera to take a picture
 	RC_PICTURE_DATA				= 0xFA,								//picture data message or get next data command, if the following byte is 0, or resend data if 1
 	RC_END_PICTURE				= 0xFB,								//message to external device that all picture data was transfered

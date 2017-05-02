@@ -10,10 +10,10 @@
 
 AccelerometerData accelerometerData;
 
-void AccelerometerWriteBytes(uint8_t* data, uint8_t length)
+void AccelerometerWriteBytes(uint8_t *data, uint8_t length)
 {
 	LL_I2C_Enable(I2C1);
-	i2cWrite(data, length, 1);
+	i2cWrite(ACCELEROMETER_I2C_ADDRESS, data, length, 1);
 	LL_I2C_Disable(I2C1);
 }
 
@@ -22,8 +22,8 @@ static uint8_t AccelerometerReadBytes(uint8_t address, uint8_t* data, uint8_t le
 {
 	*data = address;
 	LL_I2C_Enable(I2C1);
-    if(i2cWrite(data, 1, 0)) {											//successful write
-    	i2cRead(data, length);
+    if(i2cWrite(ACCELEROMETER_I2C_ADDRESS, data, 1, 0)) {											//successful write
+    	i2cRead(ACCELEROMETER_I2C_ADDRESS, data, length);
     } else {
     	LL_I2C_Disable(I2C1);
     	return 0;

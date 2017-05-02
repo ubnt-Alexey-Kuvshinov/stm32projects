@@ -38,7 +38,7 @@
 
 #define CLEAR_EVENT(event) __disable_irq(); HardwareEvents &= ~(event); __enable_irq()
 
-#define I2C_REQUEST_READ	0x01
+#define	CURRENTMETER_I2C_ADDRESS	0x8A
 
 
 typedef enum
@@ -163,12 +163,16 @@ typedef enum
 #define GSINT2_PORT					PORT_A								//accelerometer interrupt 2
 #define GSINT2_BIT					GPIO_1
 
-#define I2C1_SCL_PORT				PORT_B								//I2C interface
+//I2C interface
+#define I2C1_SCL_PORT				PORT_B
 #define I2C1_SCL_BIT				GPIO_8
 
 #define I2C1_SDA_PORT				PORT_B
 #define I2C1_SDA_BIT				GPIO_9
 
+//GPS power
+#define GPS_POWER_PORT				PORT_C
+#define GPS_POWER_BIT				GPIO_0
 
 
 typedef enum
@@ -222,6 +226,7 @@ typedef enum
 	STATE_TAKING_PICTURE,												//transferring image using user output buffer, user input unavailable during this time
 	STATE_TRANSMITTING_PICTURE,											//transmitting an image over the radio
 	STATE_READING_ACCELEROMETER_TEMPERATURE,							//waiting for the temperature reading to become available
+	STATE_READING_BOARD_CURRENT,										//waiting for the current reading to become available
 } System_States;
 
 typedef enum
@@ -351,8 +356,8 @@ void sendUart2Message(uint8_t *data, uint8_t length);
 void spiAccessRegisters(uint8_t *data, uint8_t length);
 void spiAccessRegisters2(uint8_t command, uint8_t *data, uint8_t length);
 
-int i2cWrite(uint8_t *data, uint8_t length, uint8_t stop);
-void i2cRead(uint8_t *data, uint8_t length);
+int i2cWrite(uint8_t device_address, uint8_t *data, uint8_t length, uint8_t stop);
+void i2cRead(uint8_t device_address, uint8_t *data, uint8_t length);
 
 //void startLpTimer(uint16_t timeout);
 //void setTimer(uint32_t timeout, uint32_t event);

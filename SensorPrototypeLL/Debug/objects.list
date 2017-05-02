@@ -1,4 +1,0 @@
-"src/main.o"
-"src/stm32l05x_board.o"
-"src/stm32l0xx_it.o"
-"startup/startup_stm32l053xx.o"

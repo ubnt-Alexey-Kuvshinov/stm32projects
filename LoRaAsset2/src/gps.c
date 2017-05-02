@@ -240,7 +240,7 @@ uint32_t GpsTask(GpsTaskCommands command, uint32_t parameter)
 		if(GTS_IDLE != state)
 			return GTS_FAILED;
 
-		sendUart1Message("blia", 4);									//to exit from sleep mode
+		sendUart1Message("wake up", 7);									//switch GPS to active mode
 		fixAttempts = 0;
 		blinkCycles = 0;
 		setTimer(GPS_FIX_WAIT_BLINK_TIME, HWE_GPS_TIMEOUT);				//wait for a fix

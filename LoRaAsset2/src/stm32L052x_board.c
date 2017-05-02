@@ -90,7 +90,7 @@ static const struct GPIO_Line inputs[] = {{GSINT1_PORT, GSINT1_BIT}, {GSINT2_POR
 static const struct GPIO_Line outputs[] = {{WHITE_LED_PORT, WHITE_LED_BIT}, {AUX_RED_LED_PORT, AUX_RED_LED_BIT}, {AUX_GREEN_LED_PORT, AUX_GREEN_LED_BIT},
 		{RADIO_RESET_PORT, RADIO_RESET_BIT}, {RADIO_NSS_PORT, RADIO_NSS_BIT}, {RADIO_MOSI_PORT, RADIO_MOSI_BIT}, {RADIO_SCK_PORT, RADIO_SCK_BIT},
 		{RF_PA_HIGH_PWR_PORT, RF_PA_HIGH_PWR_BIT}, {RF_CPS_PORT, RF_CPS_BIT}, {RF_CSD_PORT, RF_CSD_BIT},
-		{I2C1_SCL_PORT, I2C1_SCL_BIT}};
+		{I2C1_SCL_PORT, I2C1_SCL_BIT}, {GPS_POWER_PORT, GPS_POWER_BIT}};
 
 
 void SystemInit (void)
@@ -420,7 +420,8 @@ void init_Board_Peripherals(void)
 		configurePortPinAsInput(inputs[tmp].port, inputs[tmp].bit);
 
 	//configure outputs
-	setPortBit(RADIO_RESET_PORT, RADIO_RESET_BIT);
+	setPortBit(RADIO_RESET_PORT, RADIO_RESET_BIT);						//turn on the radio chip
+	setPortBit(GPS_POWER_PORT, GPS_POWER_BIT);							//turn off GPS power
 
 	for(tmp = 0; tmp < sizeof(outputs) / sizeof(struct GPIO_Line); tmp++)
 		configurePortPinAsOutput(outputs[tmp].port, outputs[tmp].bit);
@@ -441,7 +442,7 @@ void init_Board_Peripherals(void)
 
 	configureRadio();													//connect radio interrupts and enable the radio
 
-	sendUart1Message("$PMTK161,0*28\r\n", 15);							//put GPS into low-power mode
+	//sendUart1Message("$PMTK161,0*28\r\n", 15);							//put GPS into low-power mode
 }
 
 
@@ -586,9 +587,9 @@ void spiAccessRegisters2(uint8_t command, uint8_t *data, uint8_t length)
 
 
 //the stop parameter should be zero if i2cRead is called right after i2cWrite, to generate restart condition
-int i2cWrite(uint8_t *data, uint8_t length, uint8_t stop)
+int i2cWrite(uint8_t device_address, uint8_t *data, uint8_t length, uint8_t stop)
 {
-	LL_I2C_SetSlaveAddr(I2C1, ACCELEROMETER_I2C_ADDRESS);
+	LL_I2C_SetSlaveAddr(I2C1, device_address);
 	LL_I2C_SetTransferSize(I2C1, length);
 	LL_I2C_SetTransferRequest(I2C1, LL_I2C_REQUEST_WRITE);
 	LL_I2C_GenerateStartCondition(I2C1);								//Initiate a Start condition to the Slave device
@@ -596,7 +597,6 @@ int i2cWrite(uint8_t *data, uint8_t length, uint8_t stop)
 	while(!LL_I2C_IsActiveFlag_TC(I2C1)) {								//wait until length bytes are transmitted
 		if(LL_I2C_IsActiveFlag_NACK(I2C1))
 			return 0;
-//		if(LL_I2C_IsActiveFlag_TXE(I2C1))
 		if(LL_I2C_IsActiveFlag_TXIS(I2C1))
 			LL_I2C_TransmitData8(I2C1, *data++);
 	}
@@ -610,9 +610,9 @@ int i2cWrite(uint8_t *data, uint8_t length, uint8_t stop)
 }
 
 
-void i2cRead(uint8_t *data, uint8_t length)
+void i2cRead(uint8_t device_address, uint8_t *data, uint8_t length)
 {
-	LL_I2C_SetSlaveAddr(I2C1, ACCELEROMETER_I2C_ADDRESS);
+	LL_I2C_SetSlaveAddr(I2C1, device_address);
 	LL_I2C_SetTransferSize(I2C1, length);
 	LL_I2C_SetTransferRequest(I2C1, LL_I2C_REQUEST_READ);
 	LL_I2C_GenerateStartCondition(I2C1);								//Initiate a Start condition to the Slave device
@@ -627,7 +627,6 @@ void i2cRead(uint8_t *data, uint8_t length)
 	LL_I2C_GenerateStopCondition(I2C1);									//and Stop condition after receiving next byte
 	while(!LL_I2C_IsActiveFlag_STOP(I2C1));								//wait until the stop appears on I2C bus
 }
-
 
 
 inline void boardGreenLedOn(void)
