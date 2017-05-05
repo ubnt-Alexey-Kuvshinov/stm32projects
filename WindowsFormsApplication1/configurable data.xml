@@ -1,0 +1,258 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <RadioCommand type="Pic">
+    <value>radio set mod lora</value>
+    <value>radio get mod</value>
+    <value>radio set freq 915000000</value>
+    <value>radio get freq</value>
+    <value>radio set pwr 2</value>
+    <value>radio get pwr</value>
+    <value>radio set sf sf12</value>
+    <value>radio get sf</value>
+    <value>radio set prlen 8</value>
+    <value>radio get prlen</value>
+    <value>radio set crc on</value>
+    <value>radio get crc</value>
+    <value>radio set iqi off</value>
+    <value>radio get iqi</value>
+    <value>radio set cr 4/5</value>
+    <value>radio get cr</value>
+    <value>radio set wdt 0</value>
+    <value>radio get wdt</value>
+    <value>radio set sync 12</value>
+    <value>radio get sync</value>
+    <value>radio set bw 125</value>
+    <value>radio get bw</value>
+    <value>radio rx 0</value>
+    <value>mac pause</value>
+    <value>sys reset</value>
+  </RadioCommand>
+  <RadioCommand type="Semtech">
+    <value>RAdio:BGR 7</value>
+    <value>RAdio:BGR?</value>
+    <value>RAdio:BINFIfo 223</value>
+    <value>RAdio:BINFIfo?</value>
+    <value>RAdio:DIO?</value>
+    <value>RAdio:DIOMap</value>
+    <value>RAdio:DIOMap?</value>
+    <value>RAdio:FIfo "test"</value>
+    <value>RAdio:FIfo?</value>
+    <value>RAdio:FREQuency 915</value>
+    <value>RAdio:FREQuency?</value>
+    <value>RAdio:LNABoost ON</value>
+    <value>RAdio:LNABoost?</value>
+    <value>RAdio:MODulation lora</value>
+    <value>RAdio:MODulation?</value>
+    <value>RAdio:OCP 170</value>
+    <value>RAdio:OCP?</value>
+    <value>RAdio:OPmode RXC</value>
+    <value>RAdio:OPmode?</value>
+    <value>RAdio:PASelect PA_BOOST</value>
+    <value>RAdio:PASelect?</value>
+    <value>RAdio:POWer 14</value>
+    <value>RAdio:POWer?</value>
+    <value>RAdio:RSSI?</value>
+    <value>RAdio:REGister</value>
+    <value>RAdio:REGister?</value>
+    <value>RAdio:LORa:BW 125</value>
+    <value>RAdio:LORa:BW?</value>
+    <value>RAdio:LORa:CR 1</value>
+    <value>RAdio:LORa:CR?</value>
+    <value>RAdio:LORa:CRC ON</value>
+    <value>RAdio:LORa:CRC?</value>
+    <value>RAdio:LORa:FEI?</value>
+    <value>RAdio:LORa:Ih 0</value>
+    <value>RAdio:LORa:Ih?</value>
+    <value>RAdio:LORa:INVRx OFF</value>
+    <value>RAdio:LORa:INVRx?</value>
+    <value>RAdio:LORa:INVTx OFF</value>
+    <value>RAdio:LORa:INVTx?</value>
+    <value>RAdio:LORa:LDRO ON</value>
+    <value>RAdio:LORa:LDRO?</value>
+    <value>RAdio:LORa:PKTSnr?</value>
+    <value>RAdio:LORa:PKTRssi?</value>
+    <value>RAdio:LORa:PRELen 8</value>
+    <value>RAdio:LORa:PRELen?</value>
+    <value>RAdio:LORa:SF 12</value>
+    <value>RAdio:LORa:SF?</value>
+    <value>RAdio:LORa:TXContinuous ON</value>
+    <value>RAdio:LORa:TXContinuous?</value>
+    <value>*ESE</value>
+    <value>*ESE?</value>
+    <value>*ESR?</value>
+    <value>*IDN?</value>
+    <value>*OPC</value>
+    <value>*OPC?</value>
+    <value>*RST</value>
+    <value>*SRE</value>
+    <value>*SRE?</value>
+    <value>*STB?</value>
+    <value>*TST?</value>
+    <value>*WAI</value>
+    <value>SYSTem:ERRor[:NEXT]?</value>
+    <value>SYSTem:ERRor:COUNt?</value>
+    <value>SYSTem:VERSion?</value>
+    <value>STATus:QUEStionable[:EVENt]?</value>
+    <value>STATus:QUEStionable:ENABle</value>
+    <value>STATus:QUEStionable:ENABle?</value>
+    <value>STATus:PRESet</value>
+    <value>BUSY?</value>
+    <value>PD2</value>
+    <value>PD2?</value>
+    <value>RFSW?</value>
+    <value>VBAT?</value>
+  </RadioCommand>
+  <RadioCommand type="Ubiquiti">
+    <value>RAdio:BGR 7</value>
+    <value>RAdio:BGR?</value>
+    <value>RAdio:BINFIfo 223</value>
+    <value>RAdio:BINFIfo?</value>
+    <value>RAdio:DIO?</value>
+    <value>RAdio:DIOMap</value>
+    <value>RAdio:DIOMap?</value>
+    <value>RAdio:FIfo "test"</value>
+    <value>RAdio:FIfo?</value>
+    <value>RAdio:FREQuency 915</value>
+    <value>RAdio:FREQuency?</value>
+    <value>RAdio:LNABoost ON</value>
+    <value>RAdio:LNABoost?</value>
+    <value>RAdio:MODulation lora</value>
+    <value>RAdio:MODulation?</value>
+    <value>RAdio:OCP 170</value>
+    <value>RAdio:OCP?</value>
+    <value>RAdio:OPmode RXC</value>
+    <value>RAdio:OPmode?</value>
+    <value>RAdio:PASelect PA_BOOST</value>
+    <value>RAdio:PASelect?</value>
+    <value>RAdio:POWer 14</value>
+    <value>RAdio:POWer?</value>
+    <value>RAdio:RSSI?</value>
+    <value>RAdio:REGister</value>
+    <value>RAdio:REGister?</value>
+    <value>RAdio:LORa:BW 125</value>
+    <value>RAdio:LORa:BW?</value>
+    <value>RAdio:LORa:CR 1</value>
+    <value>RAdio:LORa:CR?</value>
+    <value>RAdio:LORa:CRC ON</value>
+    <value>RAdio:LORa:CRC?</value>
+    <value>RAdio:LORa:FEI?</value>
+    <value>RAdio:LORa:Ih 0</value>
+    <value>RAdio:LORa:Ih?</value>
+    <value>RAdio:LORa:INVRx OFF</value>
+    <value>RAdio:LORa:INVRx?</value>
+    <value>RAdio:LORa:INVTx OFF</value>
+    <value>RAdio:LORa:INVTx?</value>
+    <value>RAdio:LORa:LDRO ON</value>
+    <value>RAdio:LORa:LDRO?</value>
+    <value>RAdio:LORa:PKTSnr?</value>
+    <value>RAdio:LORa:PKTRssi?</value>
+    <value>RAdio:LORa:PRELen 8</value>
+    <value>RAdio:LORa:PRELen?</value>
+    <value>RAdio:LORa:SF 12</value>
+    <value>RAdio:LORa:SF?</value>
+    <value>RAdio:LORa:TXContinuous ON</value>
+    <value>RAdio:LORa:TXContinuous?</value>
+    <value>*ESE</value>
+    <value>*ESE?</value>
+    <value>*ESR?</value>
+    <value>*IDN?</value>
+    <value>*OPC</value>
+    <value>*OPC?</value>
+    <value>*RST</value>
+    <value>*SRE</value>
+    <value>*SRE?</value>
+    <value>*STB?</value>
+    <value>*TST?</value>
+    <value>*WAI</value>
+    <value>SYSTem:ERRor[:NEXT]?</value>
+    <value>SYSTem:ERRor:COUNt?</value>
+    <value>SYSTem:VERSion?</value>
+    <value>STATus:QUEStionable[:EVENt]?</value>
+    <value>STATus:QUEStionable:ENABle</value>
+    <value>STATus:QUEStionable:ENABle?</value>
+    <value>STATus:PRESet</value>
+    <value>BUSY?</value>
+    <value>PD2</value>
+    <value>PD2?</value>
+    <value>RFSW?</value>
+    <value>VBAT?</value>
+  </RadioCommand>
+  <RadioCommandsBatch type="Pic">
+    <name>Rx125 sf7 4/5 no CRC</name>
+    <value>radio set mod lora
+radio set freq 915000000
+radio set bw 125
+radio set sf sf7
+radio set prlen 8
+radio set crc off
+radio set cr 4/5
+radio set sync 12
+radio set wdt 0
+mac pause
+radio rx 0</value>
+  </RadioCommandsBatch>
+  <RadioCommandsBatch type="Pic">
+    <name>Rx 125 sf12 4/5 CRC</name>
+    <value>radio set mod lora
+radio set freq 915000000
+radio set sf sf12
+radio set crc on
+radio set cr 4/5
+radio set sync 12
+radio set wdt 0
+radio set bw 125
+mac pause
+radio rx 0</value>
+  </RadioCommandsBatch>
+  <RadioCommandsBatch type="Pic">
+    <name>Init Tx 125 sf12 4/5 crc prl8 2</name>
+    <value>radio set mod lora
+radio set freq 915000000
+radio set pwr 2
+radio set sf sf12
+radio set prlen 8
+radio set crc on
+radio set cr 4/5
+radio set wdt 0
+radio set sync 12
+radio set bw 125
+mac pause</value>
+  </RadioCommandsBatch>
+  <RadioCommandsBatch type="Semtech">
+    <name>Init Tx 125 sf12 pr 8 crc 4/5 pow 2</name>
+    <value>ra:mod lora
+ra:freq 915
+RA:LOR:BW 125
+RA:LOR:SF 12
+RA:LOR:PREL 8
+RA:LOR:CRC ON
+RA:LOR:CR 1
+ra:POW 2</value>
+  </RadioCommandsBatch>
+  <RadioCommandsBatch type="Semtech">
+    <name>Init Tx 125 sf7 no CRC pow 2</name>
+    <value>ra:mod lora
+ra:freq 915
+RA:LOR:BW 125
+RA:LOR:SF 7
+RA:LOR:CR 1
+RA:LOR:CRC Off
+RA:PAS PA_BOOST
+RA:OCP 170
+RA:BGR 7
+ra:POW 2
+</value>
+  </RadioCommandsBatch>
+  <RadioCommandsBatch type="Semtech">
+    <name>Rx 125 sf12 crc 4/5</name>
+    <value>*rst
+ra:mod lora
+ra:freq 915
+RA:LOR:BW 125
+RA:LOR:SF 12
+RA:LOR:CRC ON
+RA:LOR:CR 1
+RA:LOR:PREL 8
+ra:op rxc</value>
+  </RadioCommandsBatch>
+</root>

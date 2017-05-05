@@ -1,0 +1,3 @@
+oct 13 2016
+added tab for semtech NaMote, the boards transmit UART data as hex string
+saving before changing to transmission as bytes with message lenght coming in first byte, followed by command (message type)
