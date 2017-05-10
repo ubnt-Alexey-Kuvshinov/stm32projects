@@ -201,8 +201,7 @@ void stateMachine(void)
 
 				case RC_SET_WAKEUP:
 					DeviceState.StateAndSubstate = STATE_IDLE;
-					CLEAR_EVENT(HWE_KEEP_CPU_RUNNING);
-//					LL_RTC_DisableWriteProtection(RTC);
+					LL_RTC_DisableWriteProtection(RTC);
 					LL_RTC_ALMA_Disable(RTC);
 					RTC->ISR = ~(RTC_ISR_ALRAF | RTC_ISR_INIT) | (RTC->ISR & RTC_ISR_INIT);	//Clear the AlarmA interrupt pending bit
 					while(!LL_RTC_IsActiveFlag_ALRAW(RTC));
@@ -210,7 +209,7 @@ void stateMachine(void)
 					LL_RTC_ALMA_SetDay(RTC, LpUartCommand[5]);
 					LL_RTC_ALMA_SetMask(RTC, (LpUartCommand[6] << 24) | (LpUartCommand[7] << 16) | (LpUartCommand[8] << 8) | LpUartCommand[9]);
 					LL_RTC_ALMA_Enable(RTC);
-//					LL_RTC_EnableWriteProtection(RTC);
+					LL_RTC_EnableWriteProtection(RTC);
 					break;
 				case RC_GET_DATE:
 					addToLpUartMsg(LL_RTC_DATE_GetWeekDay(RTC));
@@ -462,7 +461,6 @@ void stateMachine(void)
 				}
 			}
 			break;	//STATE_READING_TEMPERATURE
-
 
 			case STATE_READING_BOARD_CURRENT:
 				switch(DeviceState.substate) {

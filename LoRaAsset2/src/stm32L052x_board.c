@@ -340,7 +340,7 @@ static inline void enableRTC(void)
 	LL_RTC_EnableIT_ALRB(RTC);											//enable Alarm B interrupt
 //	LL_RTC_ALMB_Enable(RTC);											//enable Alarm B
 
-//	LL_RTC_EnableWriteProtection(RTC);
+	LL_RTC_EnableWriteProtection(RTC);
 
 	//After a system reset, the software must wait until RSF is set before reading the RTC_SSR RTC_TR and RTC_DR
 	while(!LL_RTC_IsActiveFlag_RS(RTC));
