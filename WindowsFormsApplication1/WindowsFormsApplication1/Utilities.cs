@@ -181,6 +181,7 @@ public static class utilities
             case (byte)RadioCommands.END_PICTURE:
 
                 WindowsFormsApplication1.Form1.FsPicture.Close();
+                System.Diagnostics.Process.Start(@"pic.jpg");
                 return "picture transfer complete \r\n";
 
             default:
